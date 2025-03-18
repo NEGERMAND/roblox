@@ -3742,6 +3742,40 @@ local ai_weights = {
     }
 }
 
+-- Function to normalize angles between -180 and 180
+local function NormalizeAngle(angle)
+    while angle > 180 do angle = angle - 360 end
+    while angle < -180 do angle = angle + 360 end
+    return angle
+end
+
+-- Function to calculate the difference between two angles
+local function AngleDifference(angle1, angle2)
+    local diff = angle1 - angle2
+    while diff > 180 do diff = diff - 360 end
+    while diff < -180 do diff = diff + 360 end
+    return diff
+end
+
+-- Function to predict player movement
+local function PredictEnemyMovement(player)
+    local velocity_x, velocity_y, velocity_z = entity.get_prop(player, "m_vecVelocity")
+    local speed = math.sqrt(velocity_x^2 + velocity_y^2 + velocity_z^2)
+    local move_direction = math.atan2(velocity_y, velocity_x)
+    
+    local predicted_yaw = NormalizeAngle(entity.get_prop(player, "m_angEyeAnglesY") + (speed * 0.1))
+    
+    return predicted_yaw
+end
+
+-- Function to apply recoil compensation to the predicted yaw
+local function ApplyRecoilCompensation(player, predicted_yaw)
+    local recoil_compensation = 0  -- Placeholder for recoil compensation logic
+    local final_yaw = predicted_yaw + recoil_compensation
+    
+    return NormalizeAngle(final_yaw)
+end
+
 local function gather_player_data()
     local players = {}
     local player_count = globals.maxplayers()
@@ -3759,6 +3793,7 @@ local function gather_player_data()
     return players
 end
 
+-- AI Resolver (Improved with movement prediction)
 local function ai_resolver(player, mode)
     if not player.position or type(player.position) ~= "userdata" then
         return {}
@@ -3786,9 +3821,17 @@ local function ai_resolver(player, mode)
         (player.anti_aim and player.anti_aim.y or 0) * weights.anti_aim,
         (player.anti_aim and player.anti_aim.z or 0) * weights.anti_aim
     )
+
+    -- Apply movement prediction and recoil compensation
+    local predicted_yaw = PredictEnemyMovement(player)
+    resolved_data.resolved_anti_aim = vector(
+        resolved_data.resolved_anti_aim.x + predicted_yaw,
+        resolved_data.resolved_anti_aim.y,
+        resolved_data.resolved_anti_aim.z
+    )
+    
     return resolved_data
 end
-
 
 local function automatic_resolver()
     local local_player = entity.get_local_player()
