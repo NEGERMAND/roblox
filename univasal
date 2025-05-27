@@ -66,10 +66,26 @@ LeftGroupBox:AddToggle('AimbotToggle', {
     Callback = function(value)
         aimbotEnabled = value
     end
+}):AddKeyPicker('AimbotKey', {
+    Text = 'Aimbot Toggle Key',
+    Default = 'MouseButton2',
+    SyncToggleState = false,
+    Mode = 'Toggle',
+    Callback = function(key)
+        _G.AimbotKey = Enum.UserInputType[key] or Enum.KeyCode[key]
+    end
+})
+
+LeftGroupBox:AddToggle('TeamCheckToggle', {
+    Text = 'Team Check',
+    Default = false, -- Team check is ON by default
+    Callback = function(value)
+        _G.TeamCheckEnabled = value
+    end
 })
 
 LeftGroupBox:AddToggle('AimFOVToggle', {
-    Text = 'Show FOV Circle',
+    Text = 'FOV Circle',
     Default = false,
     Callback = function(value)
         fovEnabled = value
@@ -109,6 +125,9 @@ LeftGroupBox:AddDropdown('HitboxDropdown', {
         targetHitbox = value
     end
 })
+
+
+
 
 local originalSpreadValues = {}
 
@@ -166,7 +185,7 @@ LeftGroupBox2:AddToggle('RemoveFlashToggle', {
 })
 
 LeftGroupBox2:AddToggle('RemoveSmokeToggle', {
-    Text = 'Remove Smoke',
+    Text = 'Remove Smoke - 50/50',
     Default = false,
     Callback = function(value)
         _G.RemoveSmoke = value
@@ -178,7 +197,7 @@ local noclipActive = false
 
 -- UI setup example (LeftGroupBox2)
 LeftGroupBox2:AddToggle('NoclipToggle', {
-    Text = 'Noclip',
+    Text = 'Noclip - dont work rn',
     Default = false,
     Callback = function(value)
         _G.Noclip = value
@@ -591,20 +610,29 @@ FOVring.Radius = fovRadius
 FOVring.Filled = false
 FOVring.Position = workspace.CurrentCamera.ViewportSize / 2
 
--- Right mouse button input
+-- Unified input handling
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
+
+    -- Track right mouse hold for aimbot lock
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         rightMouseDown = true
     end
-end)
 
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseDown = false
+    -- Support both keyboard and mouse button key binds
+    local matchedKey = (_G.AimbotKey and (
+        (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == _G.AimbotKey) or
+        (input.UserInputType == Enum.UserInputType.MouseButton2 and _G.AimbotKey == Enum.UserInputType.MouseButton2)
+    ))
+
+    if matchedKey then
+        aimbotEnabled = not aimbotEnabled
+        Toggles.AimbotToggle:Set(aimbotEnabled)
     end
 end)
+
+
+
 
 -- Get closest player in FOV
 local function GetClosestPlayer()
@@ -614,7 +642,11 @@ local function GetClosestPlayer()
 
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= LocalPlayer 
-           and player.Team ~= LocalPlayer.Team -- skip teammates
+           and player.Character 
+           and player.Character:FindFirstChild(targetHitbox) 
+           and player.Character:FindFirstChild("Humanoid") 
+           and player.Character.Humanoid.Health > 0 
+           and (_G.TeamCheckEnabled ~= true or player.Team ~= LocalPlayer.Team)
            and player.Character 
            and player.Character:FindFirstChild(targetHitbox) 
            and player.Character:FindFirstChild("Humanoid") 
