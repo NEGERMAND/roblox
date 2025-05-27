@@ -12,8 +12,8 @@ local OverrideUserSettings = true
 
 -- Script settings
 local linglinghack = {
-    Username = OverrideUserSettings and "NEGERMAND" or "Gamesense.pub",
-    Build = OverrideUserSettings and 'NEGERMAND' or 'Gamesense.pub',
+    Username = OverrideUserSettings and "NEGERMAND" or "Moodhacks",
+    Build = OverrideUserSettings and 'NEGERMAND' or 'Moodhacks',
 
     Accent = Color3.fromRGB(140, 130, 255)
 }
@@ -4596,7 +4596,7 @@ local Storage = {
 
 -- UI/Menu Creation
     local Window = Library:CreateWindow({
-        Title = 'Gamesense.pub by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
+        Title = 'Moodhacks by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
         Center = true, AutoShow = true, TabPadding = 5, MenuFadeTime = 0.2
     })
 
@@ -5074,24 +5074,24 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
         end
     })
 
-    Groups.Misc.Movement:AddToggle('FlyHack', {
-        Text = 'Flyhack', Tooltip = nil,
-        Default = false,
-
-        Callback = function(Value)
-            Config.Misc.Movement.FlyHack.Enabled = Value
-        end
-    })
-    Groups.Misc.Movement:AddSlider('FlyHackValue', {
-        Text = 'Flyhack speed', Tooltip = nil,
-
-        Default = 50,  Min = 0,  Max = 50, Rounding = 1,
-        Compact = false,
-
-        Callback = function(Value)
-            Config.Misc.Movement.FlyHack.Value = Value
-        end
-    })
+--    Groups.Misc.Movement:AddToggle('FlyHack', {
+--        Text = 'Flyhack -- b', Tooltip = nil,
+--        Default = false,
+--
+--        Callback = function(Value)
+--            Config.Misc.Movement.FlyHack.Enabled = Value
+--        end
+--    })
+--    Groups.Misc.Movement:AddSlider('FlyHackValue', {
+--        Text = 'Flyhack speed', Tooltip = nil,
+--
+--        Default = 50,  Min = 0,  Max = 50, Rounding = 1,
+--        Compact = false,
+--
+--        Callback = function(Value)
+--            Config.Misc.Movement.FlyHack.Value = Value
+--        end
+--    })
 
     Groups.Misc.Movement:AddToggle('SpeedHack', {
         Text = 'Speedhack', Tooltip = nil,
@@ -6066,24 +6066,27 @@ end)
     end)
 --
 
--- Unload feature
-    Groups.Settings.Menu:AddButton('Unload', function()
-        Library:Notify('Gamesense.pub This feature is not working because why')
-        -- Removed for now, I couldnt care enough cuz 1/2 the time you need to relauch anyways.
-        -- Add back before public/private release, we havent decided either yet also.
-    end)    
---
+-- Moodhacks
+local MenuGroup = Tabs['Moodhacks']:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
+    Default = 'RightShift',
+    NoUI = true,
+    Text = 'Menu keybind'
+})
+Library.ToggleKeybind = Options.MenuKeybind
 
--- Load UI Library Save Manager / Config Manager.
--- This isnt indented like everything else due to a solara bug, your script won't run with a comment on the last line.
+ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-SaveManager:SetFolder('Gamesense.pub')
+ThemeManager:SetFolder('Moodhacks')
+SaveManager:SetFolder('Moodhacks/Phantom Forces')
 
-SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs['Moodhacks'])
+ThemeManager:ApplyToTab(Tabs['Moodhacks'])
 
 SaveManager:LoadAutoloadConfig()
 
