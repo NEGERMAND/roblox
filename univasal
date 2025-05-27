@@ -110,9 +110,6 @@ LeftGroupBox:AddDropdown('HitboxDropdown', {
     end
 })
 
-
-
-
 local originalSpreadValues = {}
 
 LeftGroupBox2:AddToggle('NoSpreadToggle', {
