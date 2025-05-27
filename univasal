@@ -111,28 +111,7 @@ LeftGroupBox:AddDropdown('HitboxDropdown', {
 })
 
 
-LeftGroupBox2:AddToggle('TeamCheckToggle', {
-    Text = 'Team Check',
-    Default = false,
-    Callback = function(value)
-        teamCheckEnabled = value
 
-        -- Remove highlights from all players first
-        for character, highlight in pairs(highlights) do
-            highlight:Destroy()
-        end
-        highlights = {}
-
-        -- Re-add highlights only to enemies if highlightESPEnabled is true
-        if highlightESPEnabled then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player.Character and isEnemy(player) then
-                    addHighlight(player.Character)
-                end
-            end
-        end
-    end
-})
 
 local originalSpreadValues = {}
 
@@ -320,6 +299,29 @@ _G.highlightESPEnabled = true
 
 local boxThickness = 2
 local tracerThickness = 2
+
+RightGroupBox:AddToggle('TeamCheckToggle', {
+    Text = 'Team Check',
+    Default = false,
+    Callback = function(value)
+        teamCheckEnabled = value
+
+        -- Remove highlights from all players first
+        for character, highlight in pairs(highlights) do
+            highlight:Destroy()
+        end
+        highlights = {}
+
+        -- Re-add highlights only to enemies if highlightESPEnabled is true
+        if highlightESPEnabled then
+            for _, player in pairs(Players:GetPlayers()) do
+                if player.Character and isEnemy(player) then
+                    addHighlight(player.Character)
+                end
+            end
+        end
+    end
+})
 
 RightGroupBox:AddToggle('BoxESP', {
     Text = 'Box ESP',
