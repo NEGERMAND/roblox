@@ -5,7 +5,7 @@ local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local Window = Library:CreateWindow({
-    Title = 'Moodhacks universal - made by !NEGERMAND',
+    Title = 'Moodhacks counterblox - made by !NEGERMAND',
     Center = true,
     AutoShow = true,
     TabPadding = 8
@@ -888,7 +888,7 @@ Library:OnUnload(function()
     print('Unloaded!')
 end)
 
-Library:Notify('This script is mostly made for Counterblox', 8)
+Library:Notify('This script is made for Counterblox', 8)
 
 
 -- Moodhacks
@@ -908,7 +908,7 @@ SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
 ThemeManager:SetFolder('Moodhacks')
-SaveManager:SetFolder('Moodhacks/universal')
+SaveManager:SetFolder('Moodhacks/CBRO')
 
 SaveManager:BuildConfigSection(Tabs['Moodhacks'])
 ThemeManager:ApplyToTab(Tabs['Moodhacks'])
