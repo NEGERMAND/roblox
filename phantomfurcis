@@ -6066,28 +6066,39 @@ end)
     end)
 --
 
--- Moodhacks
-local MenuGroup = Tabs['Moodhacks']:AddLeftGroupbox('Menu')
-MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
-    Default = 'RightShift',
-    NoUI = true,
-    Text = 'Menu keybind'
-})
-Library.ToggleKeybind = Options.MenuKeybind
+Groups.Settings.Menu:AddButton('Unload', function()
+    Library:Notify('Moodhacks unloading...')
 
-ThemeManager:SetLibrary(Library)
+    -- Destroy the UI (replace `Library.UI` with your actual main UI variable if different)
+    if Library and Library.UI then
+        Library.UI:Destroy()
+    end
+
+    -- Disconnect connections (if you stored any in variables, disconnect them here)
+    -- Example: if you have a RunService connection like 'connection', do: connection:Disconnect()
+
+    -- Clear global variables (optional but good practice)
+    _G = nil
+
+    -- Optional: set flags to false or nil if used elsewhere
+    -- aimbotEnabled = false
+
+    -- Notify done
+    Library:Notify('Moodhacks unloaded failed')
+end)
+
+
+-- Load UI Library Save Manager / Config Manager.
+-- This isnt indented like everything else due to a solara bug, your script won't run with a comment on the last line.
 SaveManager:SetLibrary(Library)
 
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-ThemeManager:SetFolder('Moodhacks')
-SaveManager:SetFolder('Moodhacks/Phantom Forces')
+SaveManager:SetFolder('MOODPF')
 
-SaveManager:BuildConfigSection(Tabs['Moodhacks'])
-ThemeManager:ApplyToTab(Tabs['Moodhacks'])
+SaveManager:BuildConfigSection(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify(string.format('Gamesense.pub NEGERMAND owns you now', linglinghack.Username))
+Library:Notify(string.format('MOODHACKS !NEGERMAND owns you now', linglinghack.Username))
