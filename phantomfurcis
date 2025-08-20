@@ -12,8 +12,8 @@ local OverrideUserSettings = true
 
 -- Script settings
 local linglinghack = {
-    Username = OverrideUserSettings and "NEGERMAND" or "Moodhacks",
-    Build = OverrideUserSettings and 'NEGERMAND' or 'Moodhacks',
+    Username = OverrideUserSettings and "NEGERMAND" or "Gamesense.pub",
+    Build = OverrideUserSettings and 'NEGERMAND' or 'Gamesense.pub',
 
     Accent = Color3.fromRGB(140, 130, 255)
 }
@@ -4596,13 +4596,13 @@ local Storage = {
 
 -- UI/Menu Creation
     local Window = Library:CreateWindow({
-        Title = 'Moodhacks by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
+        Title = 'Gamesense.pub by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
         Center = true, AutoShow = true, TabPadding = 5, MenuFadeTime = 0.2
     })
 
     local Tabs = {
         Ragebot = Window:AddTab('Combat'),
-        Antiaim = Window:AddTab(''),
+      --  Antiaim = Window:AddTab(''),
         Visuals = Window:AddTab('Visuals'),
         Misc = Window:AddTab('Miscellaneous'),
         Settings = Window:AddTab('Settings')
@@ -4613,17 +4613,17 @@ local Storage = {
             General = Tabs.Ragebot:AddLeftGroupbox('General'),
         },
 
-        Antiaim = {
-            General = Tabs.Antiaim:AddLeftGroupbox(''),
-            Fakelag = Tabs.Antiaim:AddRightGroupbox(''),
-            Other = Tabs.Antiaim:AddRightGroupbox('')
-        },
+     --  Antiaim = {
+    --        General = Tabs.Antiaim:AddLeftGroupbox(''),
+      --      Fakelag = Tabs.Antiaim:AddRightGroupbox(''),
+      --      Other = Tabs.Antiaim:AddRightGroupbox('')
+       -- },
 
         Visuals = {
             Players = Tabs.Visuals:AddLeftGroupbox('Players'),
             World = Tabs.Visuals:AddRightGroupbox('World'),
 
-            Throwables = Tabs.Visuals:AddLeftGroupbox('Throwables'),
+          --  Throwables = Tabs.Visuals:AddLeftGroupbox('Throwables'),
             Other = Tabs.Visuals:AddRightGroupbox('Other')
         },
 
@@ -4725,15 +4725,15 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
         end
     })]]
 
-    Groups.Ragebot.General:AddToggle('RagebotAutoShoot', {
-        Text = 'Auto shoot', Tooltip = nil,
-        Default = false,
-
-        Callback = function(Value)
-            Config.Ragebot.General.AutoFire = Value
-        end
-    })
-
+ --   Groups.Ragebot.General:AddToggle('RagebotAutoShoot', {
+  --      Text = 'Auto shoot', Tooltip = nil,
+  --      Default = false,
+--
+   --     Callback = function(Value)
+ --           Config.Ragebot.General.AutoFire = Value
+   --     end
+   -- })
+--
     Groups.Ragebot.General:AddDropdown('RagebotHitboxes', {
         Text = 'Hitboxes', Tooltip = nil,
 
@@ -4747,16 +4747,16 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
     })
 
     -- UI -> Antiaim -> General
-    Groups.Antiaim.General:AddToggle('AntiAimEnabled', {
-        Text = 'Enabled',
-        Tooltip = nil,
-
-        Default = false,
-
-        Callback = function(Value)
-            Config.Antiaim.General.Enabled = Value
-        end
-    })
+   -- Groups.Antiaim.General:AddToggle('AntiAimEnabled', {
+    --    Text = 'Enabled',
+    --    Tooltip = nil,
+--
+   --     Default = false,
+--
+   --     Callback = function(Value)
+   --         Config.Antiaim.General.Enabled = Value
+   --     end
+   -- })
 
     -- UI -> Antiaim -> Fakelag
     --[[Groups.Antiaim.Fakelag:AddToggle('Fakelag', {
@@ -4822,32 +4822,32 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
         end
     })
 
---    Groups.Visuals.Players:AddToggle('Chams', {
---        Text = 'Chams - breaks ur game', Tooltip = nil,
---        Default = false,
+    -- Groups.Visuals.Players:AddToggle('Chams', {
+     --   Text = 'Chams - breaks ur game', Tooltip = nil,
+    --    Default = false,
 --
---        Callback = function(Value)
---            Config.Visuals.Players.Chams.Enabled = Value
---        end
---    }):AddColorPicker('ChamsOutlineColor', {
---        Title = 'Outline color',
+    --    Callback = function(Value)
+     --       Config.Visuals.Players.Chams.Enabled = Value
+     --   end
+    --}):AddColorPicker('ChamsOutlineColor', {
+     --   Title = 'Outline color',
+
+     --   Default = linglinghack.Accent,
+      --  Transparency = 0,
 --
---        Default = linglinghack.Accent,
---        Transparency = 0,
+      --  Callback = function(Value)
+      --      Config.Visuals.Players.Chams.OutlineColor = Value
+     --   end
+   -- }):AddColorPicker('ChamsFillColor', {
+    --    Title = 'Fill color',
 --
---        Callback = function(Value)
---            Config.Visuals.Players.Chams.OutlineColor = Value
---        end
---    }):AddColorPicker('ChamsFillColor', {
---        Title = 'Fill color',
+   --     Default = ColorRGB(0, 0, 0),
+    --    Transparency = 0,
 --
---        Default = ColorRGB(0, 0, 0),
---        Transparency = 0,
---
---        Callback = function(Value)
---            Config.Visuals.Players.Chams.FillColor = Value
---        end
---    })
+    --    Callback = function(Value)
+    --        Config.Visuals.Players.Chams.FillColor = Value
+    --    end
+   -- })
 
     Groups.Visuals.Players:AddToggle('WeaponChams', {
         Text = 'Weapon chams', Tooltip = nil,
@@ -5074,24 +5074,24 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
         end
     })
 
---    Groups.Misc.Movement:AddToggle('FlyHack', {
---        Text = 'Flyhack -- b', Tooltip = nil,
---        Default = false,
+   -- Groups.Misc.Movement:AddToggle('FlyHack', {
+    --    Text = 'Flyhack', Tooltip = nil,
+    --    Default = false,
 --
---        Callback = function(Value)
---            Config.Misc.Movement.FlyHack.Enabled = Value
---        end
---    })
---    Groups.Misc.Movement:AddSlider('FlyHackValue', {
---        Text = 'Flyhack speed', Tooltip = nil,
+     --   Callback = function(Value)
+      --      Config.Misc.Movement.FlyHack.Enabled = Value
+    --    end
+    --})
+    --Groups.Misc.Movement:AddSlider('FlyHackValue', {
+    --    Text = 'Flyhack speed', Tooltip = nil,
 --
---        Default = 50,  Min = 0,  Max = 50, Rounding = 1,
---        Compact = false,
+    --    Default = 50,  Min = 0,  Max = 50, Rounding = 1,
+   --     Compact = false,
 --
---        Callback = function(Value)
---            Config.Misc.Movement.FlyHack.Value = Value
---        end
---    })
+     --   Callback = function(Value)
+     --       Config.Misc.Movement.FlyHack.Value = Value
+    --   end
+    --})
 
     Groups.Misc.Movement:AddToggle('SpeedHack', {
         Text = 'Speedhack', Tooltip = nil,
@@ -6066,27 +6066,13 @@ end)
     end)
 --
 
-Groups.Settings.Menu:AddButton('Unload', function()
-    Library:Notify('Moodhacks unloading...')
-
-    -- Destroy the UI (replace `Library.UI` with your actual main UI variable if different)
-    if Library and Library.UI then
-        Library.UI:Destroy()
-    end
-
-    -- Disconnect connections (if you stored any in variables, disconnect them here)
-    -- Example: if you have a RunService connection like 'connection', do: connection:Disconnect()
-
-    -- Clear global variables (optional but good practice)
-    _G = nil
-
-    -- Optional: set flags to false or nil if used elsewhere
-    -- aimbotEnabled = false
-
-    -- Notify done
-    Library:Notify('Moodhacks unloaded failed')
-end)
-
+-- Unload feature
+    Groups.Settings.Menu:AddButton('Unload', function()
+        Library:Notify('Gamesense.pub This feature is not working because why')
+        -- Removed for now, I couldnt care enough cuz 1/2 the time you need to relauch anyways.
+        -- Add back before public/private release, we havent decided either yet also.
+    end)    
+--
 
 -- Load UI Library Save Manager / Config Manager.
 -- This isnt indented like everything else due to a solara bug, your script won't run with a comment on the last line.
@@ -6095,10 +6081,10 @@ SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-SaveManager:SetFolder('MOODPF')
+SaveManager:SetFolder('Gamesense.pub')
 
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify(string.format('MOODHACKS !NEGERMAND owns you now', linglinghack.Username))
+Library:Notify(string.format('Gamesense.pub NEGERMAND owns you now', linglinghack.Username))
