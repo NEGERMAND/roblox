@@ -1,0 +1,363 @@
+--gun grounds--
+
+-- New example script written by wally
+-- LinoriaLib version fixed for Aimbot smoother + ESP + TeamCheck toggle
+
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Example menu',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Aimbot = Window:AddTab('Aimbot'),
+    ESP = Window:AddTab('ESP'),
+    ['UI Settings'] = Window:AddTab('UI Settings')
+}
+
+--> [< Variables >] <--
+local hue = 0
+local rainbowFov = false
+local rainbowSpeed = 0.005
+
+local aimFov = 100
+local aiming = false
+local aimbotEnabled = false
+local aimbotSmoother = 0.2
+local teamCheckEnabled = false -- new team check toggle
+
+-- ESP Variables
+local boxESPEnabled = false
+local boxESPColor = Color3.fromRGB(0, 255, 0)
+local ESPBoxes = {}
+
+-- Cham Variables
+local chamsEnabled = false
+local chamColor = Color3.fromRGB(0, 255, 255)
+local Chams = {}
+
+-- Services
+local RunService = game:GetService("RunService")
+local players = game:GetService("Players")
+local plr = players.LocalPlayer
+local mouse = plr:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- Aimbot logic
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness = 2
+fovCircle.NumSides = 12
+fovCircle.Radius = aimFov
+fovCircle.Filled = false
+fovCircle.Color = Color3.fromRGB(255, 0, 0)
+fovCircle.Visible = false
+
+local currentTarget = nil
+
+local function isWallBetween(targetCharacter)
+    local targetHead = targetCharacter:FindFirstChild("Head")
+    if not targetHead then return true end
+
+    local origin = camera.CFrame.Position
+    local direction = (targetHead.Position - origin)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {plr.Character, targetCharacter}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    return raycastResult and raycastResult.Instance ~= nil
+end
+
+local function getNearestPlayer()
+    local nearestPlayer = nil
+    local shortestCursorDistance = aimFov
+    local shortestPlayerDistance = math.huge
+    local cameraPos = camera.CFrame.Position
+
+    for _, player in ipairs(players:GetPlayers()) do
+        if player ~= plr and player.Character and player.Character:FindFirstChild("Head") then
+            if teamCheckEnabled and player.Team == plr.Team then continue end -- skip teammates if enabled
+
+            local head = player.Character.Head
+            local headPos = camera:WorldToViewportPoint(head.Position)
+            local screenPos = Vector2.new(headPos.X, headPos.Y)
+            local mousePos = Vector2.new(mouse.X, mouse.Y)
+            local cursorDistance = (screenPos - mousePos).Magnitude
+            local playerDistance = (head.Position - cameraPos).Magnitude
+
+            if cursorDistance < shortestCursorDistance and headPos.Z > 0 then
+                if not isWallBetween(player.Character) then
+                    if playerDistance < shortestPlayerDistance then
+                        shortestPlayerDistance = playerDistance
+                        shortestCursorDistance = cursorDistance
+                        nearestPlayer = player
+                    end
+                end
+            end
+        end
+    end
+    return nearestPlayer
+end
+
+local function predictPlayerPosition(player)
+    if player and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("HumanoidRootPart") then
+        local head = player.Character.Head
+        local hrp = player.Character.HumanoidRootPart
+        local velocity = hrp.Velocity
+        local predictedPosition = head.Position + (velocity * 0.065) -- static prediction
+        return predictedPosition
+    end
+    return nil
+end
+
+local function aimAtPlayer(player, delta)
+    local predictedPosition = predictPlayerPosition(player)
+    if predictedPosition then
+        local smoothFactor = math.clamp(aimbotSmoother * delta * 60, 0, 1)
+        camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, predictedPosition), smoothFactor)
+    end
+end
+
+local function updateChams()
+    -- Remove old highlights
+    for _, highlight in pairs(Chams) do
+        highlight:Destroy()
+    end
+    Chams = {}
+
+    if not chamsEnabled then return end
+
+    for _, player in ipairs(players:GetPlayers()) do
+        if player ~= plr
+            and player.Character
+            and player.Character:FindFirstChild("HumanoidRootPart")
+            and (not teamCheckEnabled or player.Team ~= plr.Team)
+        then
+            local highlight = Instance.new("Highlight")
+            highlight.FillColor = chamColor
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 1
+            highlight.Adornee = player.Character
+            highlight.Parent = game:GetService("CoreGui")
+            table.insert(Chams, highlight)
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function(delta)
+    -- Aimbot
+    if aimbotEnabled then
+        fovCircle.Position = Vector2.new(mouse.X, mouse.Y + 50)
+
+        if rainbowFov then
+            hue = hue + rainbowSpeed
+            if hue > 1 then hue = 0 end
+            fovCircle.Color = Color3.fromHSV(hue, 1, 1)
+        end
+
+        if aiming then
+            if currentTarget and isWallBetween(currentTarget.Character) then
+                currentTarget = nil
+            end
+
+            if not currentTarget then
+                currentTarget = getNearestPlayer()
+            end
+
+            if currentTarget then
+                aimAtPlayer(currentTarget, delta)
+            end
+        else
+            currentTarget = nil
+        end
+    end
+
+    -- ESP
+    if boxESPEnabled then
+        -- Remove old boxes
+        for _, box in pairs(ESPBoxes) do
+            box.Visible = false
+            box:Remove()
+        end
+        ESPBoxes = {}
+
+        -- Create new boxes
+        for _, player in ipairs(players:GetPlayers()) do
+            if player ~= plr
+                and player.Character
+                and player.Character:FindFirstChild("HumanoidRootPart")
+                and (not teamCheckEnabled or player.Team ~= plr.Team) -- respects toggle
+            then
+                local hrp = player.Character.HumanoidRootPart
+                local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local size = 20
+                    local box = Drawing.new("Square")
+                    box.Position = Vector2.new(pos.X - size/2, pos.Y - size)
+                    box.Size = Vector2.new(size, size*2)
+                    box.Color = boxESPColor
+                    box.Thickness = 2
+                    box.Visible = true
+                    table.insert(ESPBoxes, box)
+                end
+            end
+        end
+    end
+
+    -- Chams
+    updateChams()
+end)
+
+mouse.Button2Down:Connect(function()
+    if aimbotEnabled then aiming = true end
+end)
+
+mouse.Button2Up:Connect(function()
+    if aimbotEnabled then aiming = false end
+end)
+
+-- Aimbot Tab
+local AimbotGroup = Tabs.Aimbot:AddLeftGroupbox('Combat Settings')
+
+AimbotGroup:AddToggle('AimbotToggle', {
+    Text = 'Enable Aimbot',
+    Default = false,
+    Tooltip = 'Toggle the aimbot on/off',
+    Callback = function(Value)
+        aimbotEnabled = Value
+        fovCircle.Visible = Value
+    end
+})
+
+AimbotGroup:AddSlider('AimbotFOV', {
+    Text = 'Aimbot FOV',
+    Default = 100,
+    Min = 0,
+    Max = 360,
+    Rounding = 1,
+    Suffix = '°',
+    Callback = function(Value)
+        aimFov = Value
+        fovCircle.Radius = aimFov
+    end
+})
+
+AimbotGroup:AddToggle('RainbowFOV', {
+    Text = 'Rainbow FOV',
+    Default = false,
+    Tooltip = 'Enable rainbow colored FOV circle',
+    Callback = function(Value)
+        rainbowFov = Value
+    end
+})
+
+AimbotGroup:AddSlider('RainbowSpeed', {
+    Text = 'Rainbow Speed',
+    Default = 5,
+    Min = 1,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        rainbowSpeed = Value * 0.001
+    end
+})
+
+-- Aimbot Smoother slider
+AimbotGroup:AddSlider('AimbotSmoother', {
+    Text = 'Aimbot Smoother',
+    Default = 50,
+    Min = 1,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        aimbotSmoother = math.clamp(1 - (Value / 100), 0.01, 1)
+    end
+})
+
+-- Team check toggle
+--AimbotGroup:AddToggle('TeamCheck', {
+--    Text = 'Enable Team Check',
+--    Default = true,
+--    Callback = function(Value)
+--        teamCheckEnabled = Value
+--    end
+--})
+
+AimbotGroup:AddLabel('FOV Color'):AddColorPicker('FOVColor', {
+    Default = Color3.fromRGB(255, 0, 0),
+    Title = 'FOV Circle Color',
+    Callback = function(Value)
+        fovCircle.Color = Value
+    end
+})
+
+-- ESP Tab
+local ESPGroup = Tabs.ESP:AddLeftGroupbox("ESP Settings")
+
+ESPGroup:AddToggle("BoxESP", {
+    Text = "Enable Box ESP",
+    Default = false,
+    Callback = function(Value)
+        boxESPEnabled = Value
+        if not Value then
+            for _, box in pairs(ESPBoxes) do
+                box.Visible = false
+                box:Remove()
+            end
+            ESPBoxes = {}
+        end
+    end
+})
+
+ESPGroup:AddToggle("Chams", {
+    Text = "Enable Chams",
+    Default = false,
+    Callback = function(Value)
+        chamsEnabled = Value
+        updateChams()
+    end
+})
+
+ESPGroup:AddLabel("Box Color"):AddColorPicker("BoxESPColor", {
+    Default = boxESPColor,
+    Title = "Box ESP Color",
+    Callback = function(Value)
+        boxESPColor = Value
+    end
+})
+
+ESPGroup:AddLabel("Cham Color"):AddColorPicker("ChamColor", {
+    Default = chamColor,
+    Title = "Cham Color",
+    Callback = function(Value)
+        chamColor = Value
+        if chamsEnabled then
+            updateChams()
+        end
+    end
+})
+
+-- UI Settings
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
+Library.ToggleKeybind = Options.MenuKeybind
+
+-- Theme & Save Managers
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('MyScriptHub')
+SaveManager:SetFolder('MyScriptHub/specific-game')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
