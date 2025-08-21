@@ -1,0 +1,359 @@
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/Kronos"))()
+
+local window = library:Window({
+    Title = "Gamesense.rblx",
+    Accent = Color3.fromRGB(69, 69, 207),
+    Logo = 3610245066,
+    ToggleKey = Enum.KeyCode.RightShift -- Changed from LeftAlt to RightShift
+})
+
+local tab = window:NewTab({ Logo = 4483345998 })
+local tabsection = tab:TabSection({ Title = "ESP, Aimbot & Highlights" })
+local column = tabsection:AddColumn({ Title = "Features" })
+local section = column:Section({ Title = "ESP, Aimbot & Highlighter Settings" })
+
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+local esp_enabled = false
+local fov_enabled = false
+local highlight_enabled = false
+local aimbot_enabled = false
+local wall_check_enabled = false  -- New toggle for wall check
+local aim_part = "Head"
+local esp_table = {}
+local highlight_table = {}
+
+local esp_color_enemy = Color3.fromRGB(255, 0, 0)
+local esp_color_team = Color3.fromRGB(0, 255, 0)  -- Color for teammates
+local esp_thickness = 2
+local esp_transparency = 0.75
+
+-- FOV Circle
+local fov_circle = Drawing.new("Circle")
+fov_circle.Radius = 100
+fov_circle.Color = Color3.fromRGB(255, 255, 255)
+fov_circle.Thickness = 2
+fov_circle.Filled = false
+fov_circle.Visible = false
+
+local function updateFOVPosition()
+    fov_circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
+RunService.RenderStepped:Connect(updateFOVPosition)
+
+section:Toggle({
+    Text = "Enable ESP",
+    State = false,
+    Callback = function(state)
+        esp_enabled = state
+        if not state then
+            for _, box in pairs(esp_table) do
+                if box.cleanupBox then
+                    box.cleanupBox()
+                end
+            end
+            esp_table = {}
+        end
+    end
+})
+
+section:Toggle({
+    Text = "Show FOV",
+    State = false,
+    Callback = function(state)
+        fov_enabled = state
+        fov_circle.Visible = fov_enabled
+    end
+})
+
+section:Slider({
+    Text = "FOV",
+    Min = 0,
+    Max = 500,
+    Def = 100,
+    Callback = function(value)
+        fov_circle.Radius = value
+    end
+})
+
+section:Toggle({
+    Text = "Enable Aimbot",
+    State = false,
+    Callback = function(state)
+        aimbot_enabled = state
+    end
+})
+
+section:Toggle({
+    Text = "Enable Player Highlighter",
+    State = false,
+    Callback = function(state)
+        highlight_enabled = state
+        if not state then
+            for _, highlight in pairs(highlight_table) do
+                if highlight then
+                    highlight:Destroy()
+                end
+            end
+            highlight_table = {}
+        end
+    end
+})
+
+-- New toggle for Wall Check
+section:Toggle({
+    Text = "Enable Wall Check (Aimbot)",
+    State = false,
+    Callback = function(state)
+        wall_check_enabled = state
+    end
+})
+
+-- Smoothing slider (1 is lowest smoothing, 100 is no smoothing)
+local smoothing = 50  -- Default smoothing value
+section:Slider({
+    Text = "Aimbot Smoothing",
+    Min = 1,
+    Max = 100,
+    Def = smoothing,
+    Callback = function(value)
+        smoothing = value
+    end
+})
+
+local function isEnemy(player)
+    return player.Team ~= LocalPlayer.Team
+end
+
+local function removeESP(character)
+    if esp_table[character] then
+        esp_table[character].cleanupBox()
+        esp_table[character] = nil
+    end
+    if highlight_table[character] then
+        highlight_table[character]:Destroy()
+        highlight_table[character] = nil
+    end
+end
+
+local function createESPBox(character, isEnemy)
+    local box = Drawing.new("Square")
+    local nameLabel = Drawing.new("Text")
+
+    box.Visible = false
+    box.Color = isEnemy and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)  -- Red for enemy, Green for teammate
+    box.Thickness = 2
+    box.Transparency = 0.75
+
+    nameLabel.Visible = false
+    nameLabel.Color = Color3.fromRGB(255, 255, 255)
+    nameLabel.Size = 14
+    nameLabel.Center = true
+    nameLabel.Outline = true
+    nameLabel.Font = Drawing.Fonts.UI
+
+    local function updateBox()
+        if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid").Health > 0 then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+            if onScreen and esp_enabled then
+                local size = Vector3.new(2, 3, 0) * (Camera.ViewportSize.Y / (Camera.CFrame.Position - hrp.Position).Magnitude)
+                box.Size = size
+                box.Position = Vector2.new(pos.X - size.X / 2, pos.Y - size.Y / 2)
+                box.Visible = true
+
+                nameLabel.Position = Vector2.new(pos.X, pos.Y - size.Y / 2 - 10)
+                nameLabel.Text = character.Name
+                nameLabel.Visible = true
+            else
+                box.Visible = false
+                nameLabel.Visible = false
+            end
+        else
+            removeESP(character)
+        end
+    end
+
+    local function cleanupBox()
+        box:Remove()
+        nameLabel:Remove()
+        esp_table[character] = nil
+    end
+
+    return updateBox, cleanupBox
+end
+
+local function highlightPlayer(character, isEnemy)
+    if not highlight_enabled then return end
+    if highlight_table[character] then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = character
+    highlight.FillColor = isEnemy and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+
+    highlight_table[character] = highlight
+end
+
+Players.PlayerRemoving:Connect(function(player)
+    if player.Character then
+        removeESP(player.Character)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    for _, player in pairs(Players:GetPlayers()) do
+        local character = player.Character
+        local isEnemyFlag = isEnemy(player)  -- Determine if player is enemy
+
+        if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid").Health > 0 then
+            -- Only create ESP if it's either an enemy or if Team ESP is enabled
+            if not esp_table[character] and (isEnemyFlag or true) then -- Team ESP is always on now
+                local updateBox, cleanupBox = createESPBox(character, isEnemyFlag)
+                esp_table[character] = { updateBox = updateBox, cleanupBox = cleanupBox }
+            end
+
+            if esp_enabled then
+                esp_table[character].updateBox()
+            end
+
+            highlightPlayer(character, isEnemyFlag)
+        else
+            removeESP(character)
+        end
+    end
+end)
+
+-- Get Closest Enemy in FOV
+local function getClosestEnemy()
+    local closestEnemy = nil
+    local shortestDistance = fov_circle.Radius
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and isEnemy(player) then
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid").Health > 0 then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+                if onScreen then
+                    local distance = (Vector2.new(pos.X, pos.Y) - fov_circle.Position).Magnitude
+                    if distance < shortestDistance then
+                        closestEnemy = character
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+
+    return closestEnemy
+end
+
+-- Wall check: Check if there is an obstacle between the camera and the target
+local function isTargetVisible(target)
+    local ray = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).unit * (Camera.CFrame.Position - target.Position).Magnitude)
+    local hitPart, hitPosition = workspace:FindPartOnRay(ray, LocalPlayer.Character, false, true)
+    
+    if hitPart and hitPart.Parent and hitPart.Parent:FindFirstChild("Humanoid") then
+        -- It's the target we're aiming for
+        return true
+    end
+    
+    -- If something else is hit, return false
+    return hitPart == nil
+end
+
+-- Aimbot Logic with wall check
+local aimbot_target = nil
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimbot_enabled = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimbot_enabled = false
+        aimbot_target = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if aimbot_enabled then
+        aimbot_target = getClosestEnemy()
+    end
+
+    if aimbot_target then
+        local aimPartPosition = aimbot_target:FindFirstChild(aim_part) and aimbot_target[aim_part].Position
+        if aimPartPosition then
+            -- Wall check: Only aim if no obstacles are in the way
+            if wall_check_enabled and isTargetVisible(aimPartPosition) or not wall_check_enabled then
+                -- Smoothly adjust the camera towards the target
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, aimPartPosition), smoothing / 100)
+            end
+        end
+    end
+end)
+
+-- No Clip Logic - Caps Lock toggle
+local caps_lock_active = false
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.CapsLock then
+        caps_lock_active = input.UserInputState == Enum.UserInputState.Begin
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        if caps_lock_active then
+            -- Enable No Clip
+            humanoid.PlatformStand = true
+            humanoid.RootPart.CanCollide = false
+        else
+            -- Disable No Clip
+            humanoid.PlatformStand = false
+            humanoid.RootPart.CanCollide = true
+        end
+    end
+end)
+
+-- Ctrl+Click Teleportation
+local tp_enabled = false  -- Toggle for Ctrl+Click TP
+
+section:Toggle({
+    Text = "Enable Ctrl+Click Teleport",
+    State = false,
+    Callback = function(state)
+        tp_enabled = state
+    end
+})
+
+local function GetCharacter()
+    return game.Players.LocalPlayer.Character
+end
+
+local function Teleport(pos)
+    local Char = GetCharacter()
+    if Char then
+        Char:MoveTo(pos)
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input)
+    if tp_enabled and input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        Teleport(Mouse.Hit.p)
+    end
+end)
