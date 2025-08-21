@@ -12,8 +12,8 @@ local OverrideUserSettings = true
 
 -- Script settings
 local linglinghack = {
-    Username = OverrideUserSettings and "NEGERMAND" or "Gamesense.pub",
-    Build = OverrideUserSettings and 'NEGERMAND' or 'Gamesense.pub',
+    Username = OverrideUserSettings and "NEGERMAND" or "Gamesense.rblx",
+    Build = OverrideUserSettings and 'NEGERMAND' or 'Gamesense.rblx',
 
     Accent = Color3.fromRGB(140, 130, 255)
 }
@@ -4596,7 +4596,7 @@ local Storage = {
 
 -- UI/Menu Creation
     local Window = Library:CreateWindow({
-        Title = 'Gamesense.pub by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
+        Title = 'Gamesense.rblx by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
         Center = true, AutoShow = true, TabPadding = 5, MenuFadeTime = 0.2
     })
 
@@ -6068,7 +6068,7 @@ end)
 
 -- Unload feature
     Groups.Settings.Menu:AddButton('Unload', function()
-        Library:Notify('Gamesense.pub This feature is not working because why')
+        Library:Notify('Gamesense.rblx This feature is not working because why')
         -- Removed for now, I couldnt care enough cuz 1/2 the time you need to relauch anyways.
         -- Add back before public/private release, we havent decided either yet also.
     end)    
@@ -6081,10 +6081,10 @@ SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-SaveManager:SetFolder('Gamesense.pub')
+SaveManager:SetFolder('Gamesense.rblx')
 
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify(string.format('Gamesense.pub NEGERMAND owns you now', linglinghack.Username))
+Library:Notify(string.format('Gamesense.rblx NEGERMAND owns you now', linglinghack.Username))
