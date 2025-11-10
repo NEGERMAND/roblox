@@ -1,0 +1,698 @@
+-- ULTIMATE Gamesense.rblx Counter Blox (LinoriaLib for Solara) - Fixed & Upgraded (2025)
+-- Aimbot, ESP (Individual Toggles + Fixed Chams), Triggerbot (Delay), Bhop, Fly, Inf Jump, TP, Third-Person, Spinbot
+
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Gamesense.rblx | Counter Blox (10.11.2025)',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    Visuals = Window:AddTab('Visuals'),
+    Movement = Window:AddTab('Movement'),
+    ['Anti Aim'] = Window:AddTab('Anti Aim'),
+    Misc = Window:AddTab('Misc'),
+    ['UI Settings'] = Window:AddTab('UI Settings')
+}
+
+--// Services
+local Players = game:GetService('Players')
+local RunService = game:GetService('RunService')
+local UserInputService = game:GetService('UserInputService')
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Lighting = game:GetService('Lighting')
+
+--// Variables
+local TeamCheck = false
+local ESPEnabled, ESPBoxes, ESPNames, ESPHealth, ESPDistance, ESPTracers, ESPChams = false, false, false, false, false, false, false
+local AimbotEnabled, TriggerEnabled, HitboxEnabled = false, false, false
+local BhopEnabled, FlyEnabled, InfJumpEnabled, TPEnabled = false, false, false, false
+local SpinbotEnabled, ThirdPersonEnabled = false, false
+local SpeedValue, FOVRadius, Smoothing, HitboxSize = 16, 150, 0.1, 1
+local CrosshairSize, ThirdPersonDistance, ThirdPersonHeight = 10, 10, 2
+local SpinSpeed, TriggerDelay, FakeLagDelay = 2, 0, 0
+local FlySpeed = 60
+local FakeLagEnabled, HitSoundEnabled = false, false
+local ESPTable, HighlightTable = {}, {}
+local spinAngle = 0
+
+-- Movement/Misc Variables
+local CtrlHeld = false
+local bv, bg -- BodyVelocity and BodyGyro
+local velocity = Vector3.new(0,0,0)
+local moveVector = Vector3.new(0,0,0)
+local upDown = 0
+local WASDState = {W = false, A = false, S = false, D = false}
+local FlyVerticalSpeed = 50
+local FlyAccel = 0.1
+local FlyMaxForce = 1e5
+
+-- World Modulating Variables
+local FullBrightEnabled = false
+local NoFogEnabled = false
+local TimeChangerEnabled = false
+local TimeValue = 14
+local RemoveShadowsEnabled = false
+local RemoveFlashSmokeEnabled = false
+local originalFogEnd = 10000 
+local originalLighting = {} -- Will store original Ambient, OutdoorAmbient, Brightness, GlobalShadows
+
+-- Individual ESP Color Variables
+local Colors = {
+    Box_Enemy = Color3.fromRGB(255, 0, 0),
+    Box_Team = Color3.fromRGB(0, 255, 0),
+    Name_Enemy = Color3.fromRGB(255, 255, 255),
+    Name_Team = Color3.fromRGB(255, 255, 255),
+    Health_Enemy = Color3.fromRGB(255, 255, 255),
+    Health_Team = Color3.fromRGB(255, 255, 255),
+    Dist_Enemy = Color3.fromRGB(255, 255, 255),
+    Dist_Team = Color3.fromRGB(255, 255, 255),
+    Tracer_Enemy = Color3.fromRGB(255, 0, 0),
+    Tracer_Team = Color3.fromRGB(0, 255, 0),
+    Chams_Enemy = Color3.fromRGB(255, 0, 0),
+    Chams_Team = Color3.fromRGB(0, 255, 0)
+}
+
+
+--// FOV Circle & Crosshair
+local FOVCircle = Drawing.new('Circle')
+FOVCircle.NumSides, FOVCircle.Thickness, FOVCircle.Filled, FOVCircle.Transparency, FOVCircle.Color, FOVCircle.Visible = 50, 2, false, 0.5, Color3.new(1,1,1), false
+local CrosshairH, CrosshairV = Drawing.new('Line'), Drawing.new('Line')
+CrosshairH.Thickness, CrosshairV.Thickness = 2, 2
+CrosshairH.Color, CrosshairV.Color = Color3.new(1,1,1), Color3.new(1,1,1)
+
+--// Third-Person + Spinbot Camera
+local zoomMin, zoomMax = 5, 25
+local zoomSpeed = 2
+
+-- allow scroll wheel zooming when in third person
+UserInputService.InputChanged:Connect(function(input)
+    if ThirdPersonEnabled and input.UserInputType == Enum.UserInputType.MouseWheel then
+        ThirdPersonDistance = math.clamp(ThirdPersonDistance - input.Position.Z * zoomSpeed, zoomMin, zoomMax)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local Center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Position = Center
+    FOVCircle.Radius = FOVRadius
+    CrosshairH.From = Center - Vector2.new(CrosshairSize, 0)
+    CrosshairH.To = Center + Vector2.new(CrosshairSize, 0)
+    CrosshairV.From = Center - Vector2.new(0, CrosshairSize)
+    CrosshairV.To = Center + Vector2.new(0, CrosshairSize)
+    CrosshairH.Visible = Toggles.Crosshair and Toggles.Crosshair.Value
+    CrosshairV.Visible = CrosshairH.Visible
+
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+
+    local hrp = char.HumanoidRootPart
+    local lookPoint = hrp.Position + Vector3.new(0, ThirdPersonHeight, 0)
+
+    if ThirdPersonEnabled then
+        -- when spinbot is on, rotate camera around character
+        if SpinbotEnabled then
+            local offset = Vector3.new(math.sin(spinAngle), 0.2, math.cos(spinAngle)) * ThirdPersonDistance
+            Camera.CFrame = CFrame.new(lookPoint + offset, lookPoint)
+        else
+            -- normal third-person camera that follows look direction
+            local camOffset = -Camera.CFrame.LookVector * ThirdPersonDistance
+            Camera.CFrame = CFrame.new(lookPoint + camOffset, lookPoint)
+        end
+    end
+end)
+
+
+--// Team Check
+local function IsEnemy(Player)
+    if not Player or Player == LocalPlayer then return false end
+    return not TeamCheck or Player.Team ~= LocalPlayer.Team
+end
+
+--// World Modulators Functions
+
+local function SetFullBright(enabled)
+    if enabled then
+        -- Store original values before changing
+        originalLighting.Ambient = Lighting.Ambient
+        originalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+        originalLighting.Brightness = Lighting.Brightness
+
+        -- Apply full brightness settings
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+    else
+        -- Revert to original values if they were stored
+        if originalLighting.Ambient then
+            Lighting.Ambient = originalLighting.Ambient
+        end
+        if originalLighting.OutdoorAmbient then
+            Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient
+            Lighting.Brightness = originalLighting.Brightness
+        end
+    end
+    FullBrightEnabled = enabled
+end
+
+local function SetNoFog(enabled)
+    if enabled then
+        originalFogEnd = Lighting.FogEnd
+        Lighting.FogEnd = 1000000 -- Effectively disables fog by setting far distance
+    else
+        Lighting.FogEnd = originalFogEnd -- Revert to stored value
+    end
+    NoFogEnabled = enabled
+end
+
+local function SetRemoveShadows(enabled)
+    if enabled then
+        originalLighting.GlobalShadows = Lighting.GlobalShadows
+        Lighting.GlobalShadows = false
+    else
+        if originalLighting.GlobalShadows ~= nil then
+            Lighting.GlobalShadows = originalLighting.GlobalShadows
+        end
+    end
+    RemoveShadowsEnabled = enabled
+end
+
+local function SetTime(value)
+    TimeValue = value
+end
+
+local function SetRemoveFlashSmoke(enabled)
+    RemoveFlashSmokeEnabled = enabled
+end
+
+--// ESP Builder
+local function CreateESP(Char)
+    local Box, Name, Health, Dist, Tracer = Drawing.new('Square'), Drawing.new('Text'), Drawing.new('Text'), Drawing.new('Text'), Drawing.new('Line')
+    Box.Filled, Box.Thickness, Box.Transparency = false, 2, 0.8
+    for _, obj in pairs({Name, Health, Dist}) do obj.Size, obj.Center, obj.Outline, obj.Font = 13, true, true, 2 end
+    Tracer.Thickness, Tracer.Transparency = 1, 0.7
+
+    local updateConnection
+
+    local function Update()
+        local Player = Players:GetPlayerFromCharacter(Char)
+        if not (Player and Char and Char.Parent and Char:FindFirstChild("HumanoidRootPart") and Char:FindFirstChild("Humanoid") and Char.Humanoid.Health > 0) then
+            for _, v in pairs({Box, Name, Health, Dist, Tracer}) do v:Remove() end
+            ESPTable[Char] = nil
+            if updateConnection then updateConnection:Disconnect() end
+            return
+        end
+        
+        local isEnemy = IsEnemy(Player)
+        
+        -- Determine colors from new Colors table
+        local boxColor = isEnemy and Colors.Box_Enemy or Colors.Box_Team
+        local nameColor = isEnemy and Colors.Name_Enemy or Colors.Name_Team
+        local healthColor = isEnemy and Colors.Health_Enemy or Colors.Health_Team
+        local distColor = isEnemy and Colors.Dist_Enemy or Colors.Dist_Team
+        local tracerColor = isEnemy and Colors.Tracer_Enemy or Colors.Tracer_Team
+        
+        -- Assign colors every frame
+        Box.Color = boxColor
+        Name.Color = nameColor
+        Dist.Color = distColor
+        Tracer.Color = tracerColor
+
+        local Root, OnScreen = Camera:WorldToViewportPoint(Char.HumanoidRootPart.Position)
+        
+        -- Visibility check based on TeamCheck
+        local shouldShowESP = true
+        if TeamCheck and not isEnemy then -- If TeamCheck is ON and this player is a teammate
+            shouldShowESP = false
+        end
+        
+        -- Updated visibility check: Shows based on new logic
+        if ESPEnabled and OnScreen and Player ~= LocalPlayer and shouldShowESP then
+            local Size = (2000 / Root.Z) * 0.5
+            local top = Root.Y - Size / 1.8 / 2
+            
+            if ESPBoxes then
+                Box.Size = Vector2.new(Size, Size * 1.8)
+                Box.Position = Vector2.new(Root.X - Size/2, top)
+                Box.Visible = true
+            else Box.Visible = false end
+            
+            if ESPNames then 
+                Name.Position, Name.Text, Name.Visible = Vector2.new(Root.X, top - 15), Char.Name, true 
+            else Name.Visible = false end
+            
+            if ESPHealth then
+                local H = Char.Humanoid.Health / Char.Humanoid.MaxHealth
+                Health.Color = healthColor
+                Health.Position, Health.Text, Health.Visible = Vector2.new(Root.X, Root.Y + Size/1.8/2), math.floor(H*100).."%", true
+            else Health.Visible = false end
+            
+            if ESPDistance then
+                local D = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (LocalPlayer.Character.HumanoidRootPart.Position - Char.HumanoidRootPart.Position).Magnitude or 0
+                Dist.Position, Dist.Text, Dist.Visible = Vector2.new(Root.X, Root.Y + Size/1.8/2 + 15), "["..math.floor(D).."m]", true
+            else Dist.Visible = false end
+            
+            if ESPTracers then
+                Tracer.From, Tracer.To, Tracer.Visible = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y), Vector2.new(Root.X, Root.Y), true
+            else Tracer.Visible = false end
+        else
+            for _, v in pairs({Box, Name, Health, Dist, Tracer}) do v.Visible = false end
+        end
+    end
+
+    updateConnection = RunService.RenderStepped:Connect(Update)
+    ESPTable[Char] = {Stop = function()
+        for _, v in pairs({Box, Name, Health, Dist, Tracer}) do v:Remove() end
+        if updateConnection then updateConnection:Disconnect() end
+    end}
+end
+
+
+--// Highlights / Chams
+local function AddHighlight(Char, IsEnemyFlag)
+    if HighlightTable[Char] then return end
+    local Hl = Instance.new('Highlight')
+    Hl.Adornee = Char
+    Hl.FillColor = IsEnemyFlag and Colors.Chams_Enemy or Colors.Chams_Team
+    Hl.OutlineColor = Color3.new(1,1,1)
+    Hl.FillTransparency, Hl.OutlineTransparency = 0.5, 0
+    Hl.Parent = Char
+    HighlightTable[Char] = Hl
+end
+
+--// ESP Setup
+for _, Plr in Players:GetPlayers() do
+    if Plr.Character then
+        CreateESP(Plr.Character)
+        if ESPChams then 
+            local isEnemy = IsEnemy(Plr)
+            if not TeamCheck or isEnemy then
+                AddHighlight(Plr.Character, isEnemy) 
+            end
+        end
+    end
+    Plr.CharacterAdded:Connect(function(Char)
+        CreateESP(Char)
+        if ESPChams then 
+            local isEnemy = IsEnemy(Plr)
+            if not TeamCheck or isEnemy then
+                AddHighlight(Char, isEnemy) 
+            end
+        end
+    end)
+end
+Players.PlayerRemoving:Connect(function(Plr)
+    if Plr.Character and ESPTable[Plr.Character] then 
+        ESPTable[Plr.Character].Stop()
+        ESPTable[Plr.Character] = nil 
+    end
+    if Plr.Character and HighlightTable[Plr.Character] then 
+        HighlightTable[Plr.Character]:Destroy() 
+        HighlightTable[Plr.Character] = nil 
+    end
+end)
+
+
+--// Get Closest for Aimbot
+local function GetClosest()
+    local Closest, Dist = nil, FOVRadius
+    local Center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    for _, Plr in pairs(Players:GetPlayers()) do
+        if IsEnemy(Plr) and Plr.Character and Plr.Character:FindFirstChild("Head") and Plr.Character:FindFirstChild("Humanoid") and Plr.Character.Humanoid.Health > 0 then
+            local Pos, OnScreen = Camera:WorldToViewportPoint(Plr.Character.Head.Position)
+            if OnScreen then
+                local mag = (Vector2.new(Pos.X, Pos.Y) - Center).Magnitude
+                if mag < Dist then Dist = mag Closest = Plr.Character.Head end
+            end
+        end
+    end
+    return Closest
+end
+
+--// Aimbot + Triggerbot
+local RMBHeld = false
+UserInputService.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton2 then RMBHeld = true end end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton2 then RMBHeld = false end end)
+
+RunService.Heartbeat:Connect(function()
+    if RMBHeld and AimbotEnabled then
+        local Target = GetClosest()
+        if Target then
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Target.Position), Smoothing)
+        end
+    end
+    if TriggerEnabled then
+        local Ray = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
+        local Params = RaycastParams.new()
+        Params.FilterType = Enum.RaycastFilterType.Blacklist
+        Params.FilterDescendantsInstances = {LocalPlayer.Character}
+        local Res = workspace:Raycast(Ray.Origin, Ray.Direction * 1000, Params)
+        if Res and Res.Instance and Res.Instance.Parent and IsEnemy(Players:GetPlayerFromCharacter(Res.Instance.Parent)) then
+            mouse1press()
+            task.wait(TriggerDelay)
+            mouse1release()
+        end
+    end
+end)
+
+--// Fly Controller Helpers
+local function createControllers(hrp)
+    if bv or bg then return end
+    -- BodyVelocity for smooth movement
+    bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(FlyMaxForce, FlyMaxForce, FlyMaxForce)
+    bv.P = 1250
+    bv.Velocity = Vector3.new(0,0,0)
+    bv.Parent = hrp
+
+    -- BodyGyro to align orientation to camera
+    bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(FlyMaxForce, FlyMaxForce, FlyMaxForce)
+    bg.P = 3000
+    bg.Parent = hrp
+end
+
+local function removeControllers(hum)
+    if bv then bv:Destroy(); bv = nil end
+    if bg then bg:Destroy(); bg = nil end
+    if hum then hum.PlatformStand = false end
+    -- Reset input state
+    WASDState = {W = false, A = false, S = false, D = false}
+    moveVector = Vector3.new(0,0,0)
+    upDown = 0
+    velocity = Vector3.new(0,0,0)
+end
+
+local function refreshMoveVector()
+    local x = 0
+    local z = 0
+    if WASDState.W then z = z + 1 end
+    if WASDState.S then z = z - 1 end
+    if WASDState.D then x = x + 1 end
+    if WASDState.A then x = x - 1 end
+    moveVector = Vector3.new(x, 0, z)
+end
+
+--// Movement
+local Jumping = false
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        Jumping = true
+        if FlyEnabled then upDown = 1 end
+    end
+    if input.KeyCode == Enum.KeyCode.LeftControl then
+        CtrlHeld = true
+    end
+    -- Teleport logic
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and CtrlHeld and TPEnabled then
+        local MousePos = Mouse.Hit.Position
+        if MousePos and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(MousePos)
+        end
+    end
+
+    -- Fly Input handling (new BodyMover system)
+    if input.UserInputType == Enum.UserInputType.Keyboard and FlyEnabled then
+        local key = input.KeyCode
+        if key == Enum.KeyCode.W then WASDState.W = true; refreshMoveVector()
+        elseif key == Enum.KeyCode.S then WASDState.S = true; refreshMoveVector()
+        elseif key == Enum.KeyCode.A then WASDState.A = true; refreshMoveVector()
+        elseif key == Enum.KeyCode.D then WASDState.D = true; refreshMoveVector()
+        elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then upDown = -1
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        Jumping = false
+        if FlyEnabled then upDown = 0 end
+    end
+    if input.KeyCode == Enum.KeyCode.LeftControl then
+        CtrlHeld = false
+    end
+
+    -- Fly Input handling (new BodyMover system)
+    if input.UserInputType == Enum.UserInputType.Keyboard and FlyEnabled then
+        local key = input.KeyCode
+        if key == Enum.KeyCode.W then WASDState.W = false; refreshMoveVector()
+        elseif key == Enum.KeyCode.S then WASDState.S = false; refreshMoveVector()
+        elseif key == Enum.KeyCode.A then WASDState.A = false; refreshMoveVector()
+        elseif key == Enum.KeyCode.D then WASDState.D = false; refreshMoveVector()
+        elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then upDown = 0
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hum = LocalPlayer.Character.Humanoid
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        
+        hum.WalkSpeed = SpeedValue
+
+        if BhopEnabled and Jumping and hum.FloorMaterial ~= Enum.Material.Air then
+            hum.Jump = true
+        end
+
+        if InfJumpEnabled and Jumping then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+        
+        -- Fly Logic
+        if FlyEnabled then
+            if not bv then
+                hum.PlatformStand = true
+                createControllers(hrp)
+            end
+            
+            local cam = Camera
+            local forward = cam.CFrame.LookVector
+            local right = cam.CFrame.RightVector
+            
+            local horiz = (forward * moveVector.Z + right * moveVector.X)
+            horiz = Vector3.new(horiz.X, 0, horiz.Z)
+            if horiz.Magnitude > 0 then horiz = horiz.Unit end
+
+            local targetVel = horiz * FlySpeed + Vector3.new(0, upDown * FlyVerticalSpeed, 0)
+            velocity = velocity:Lerp(targetVel, FlyAccel)
+
+            if bv then bv.Velocity = velocity end
+            if bg then
+                local camCFrame = cam.CFrame
+                local look = Vector3.new(camCFrame.LookVector.X, 0, camCFrame.LookVector.Z)
+                if look.Magnitude > 0 then bg.CFrame = CFrame.new(hrp.Position, hrp.Position + look) end
+            end
+
+        else
+            if bv then removeControllers(hum) end
+        end
+        
+        -- SPINBOT LOGIC
+        if SpinbotEnabled then
+            spinAngle = (spinAngle + math.rad(SpinSpeed)) % (math.pi * 2)
+            hrp.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, spinAngle, 0)
+        end
+    end
+    
+    -- WORLD MODULATORS CONTINUOUS LOGIC
+    
+    -- Time Changer Logic (Continuous update when enabled)
+    if TimeChangerEnabled then
+        Lighting.ClockTime = TimeValue
+    end
+
+    -- Remove Flash/Smoke Logic
+    if RemoveFlashSmokeEnabled then
+        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        
+        -- Disable Screen GUIs/Effects (Flashbangs)
+        if PlayerGui then
+            for _, v in pairs(PlayerGui:GetDescendants()) do
+                -- Check for common flash/smoke related GUI names and disable them
+                if (v:IsA("ScreenGui") or v:IsA("Frame") or v:IsA("ImageLabel") or v:IsA("TextLabel")) then
+                    local nameLower = v.Name:lower()
+                    if nameLower:match("flash") or nameLower:match("smoke") or nameLower:match("blind") then
+                        v.Enabled = false -- For ScreenGui
+                        v.Visible = false -- For Frames/Labels
+                    end
+                end
+            end
+        end
+
+        -- Disable Environmental Effects (Smoke Grenades)
+        for _, obj in pairs(workspace:GetDescendants()) do
+            -- Target Smoke objects and ParticleEmitters
+            if obj:IsA("ParticleEmitter") or obj:IsA("Smoke") then
+                local nameLower = obj.Name:lower()
+                if nameLower:match("smoke") or nameLower:match("grenade") then
+                    obj.Enabled = false
+                end
+            end
+            -- Also check for BlurEffect in Lighting/Camera (sometimes used for flash)
+            if obj:IsA("BlurEffect") and obj.Parent == Lighting then
+                 if obj.Name:lower():match("flash") then
+                    obj.Enabled = false
+                end
+            end
+        end
+    end
+    
+end)
+
+
+--// UI Setup
+
+local CombatGB1 = Tabs.Combat:AddLeftGroupbox('combat')
+CombatGB1:AddToggle('Aimbot', {Text='RMB Hold Aimbot', Default=false, Callback=function(V) AimbotEnabled=V end})
+CombatGB1:AddSlider('FOV', {Text='FOV Radius', Default=150, Min=0, Max=500, Rounding=0, Callback=function(V) FOVRadius=V end})
+CombatGB1:AddSlider('Smooth', {Text='Smoothing', Default=10, Min=1, Max=100, Rounding=0, Callback=function(V) Smoothing=V/100 end})
+CombatGB1:AddToggle('Trigger', {Text='Triggerbot', Default=false, Callback=function(V) TriggerEnabled=V end})
+CombatGB1:AddSlider('TrigDelay', {Text='Triggerbot Delay (ms)', Default=0, Min=0, Max=500, Rounding=0, Callback=function(V) TriggerDelay=V/1000 end})
+
+local VisualGB1 = Tabs.Visuals:AddLeftGroupbox('ESP')
+VisualGB1:AddToggle('ESPMain', {Text='Enable ESP', Default=false, Callback=function(V) ESPEnabled=V end})
+VisualGB1:AddToggle('Boxes', {Text='Boxes', Default=false, Callback=function(V) ESPBoxes=V end})
+:AddColorPicker('BoxEnemyC', {Default=Colors.Box_Enemy, Title = "Enemy", Callback=function(V) Colors.Box_Enemy = V end})
+:AddColorPicker('BoxTeamC', {Default=Colors.Box_Team, Title = "Team", Callback=function(V) Colors.Box_Team = V end})
+VisualGB1:AddToggle('Names', {Text='Names', Default=false, Callback=function(V) ESPNames=V end})
+:AddColorPicker('NameEnemyC', {Default=Colors.Name_Enemy, Title = "Enemy", Callback=function(V) Colors.Name_Enemy = V end})
+:AddColorPicker('NameTeamC', {Default=Colors.Name_Team, Title = "Team", Callback=function(V) Colors.Name_Team = V end})
+VisualGB1:AddToggle('Health', {Text='Health %', Default=false, Callback=function(V) ESPHealth=V end})
+:AddColorPicker('HealthEnemyC', {Default=Colors.Health_Enemy, Title = "Enemy", Callback=function(V) Colors.Health_Enemy = V end})
+:AddColorPicker('HealthTeamC', {Default=Colors.Health_Team, Title = "Team", Callback=function(V) Colors.Health_Team = V end})
+VisualGB1:AddToggle('Dist', {Text='Distance', Default=false, Callback=function(V) ESPDistance=V end})
+:AddColorPicker('DistEnemyC', {Default=Colors.Dist_Enemy, Title = "Enemy", Callback=function(V) Colors.Dist_Enemy = V end})
+:AddColorPicker('DistTeamC', {Default=Colors.Dist_Team, Title = "Team", Callback=function(V) Colors.Dist_Team = V end})
+VisualGB1:AddToggle('Tracers', {Text='Tracers', Default=false, Callback=function(V) ESPTracers=V end})
+:AddColorPicker('TracerEnemyC', {Default=Colors.Tracer_Enemy, Title = "Enemy", Callback=function(V) Colors.Tracer_Enemy = V end})
+:AddColorPicker('TracerTeamC', {Default=Colors.Tracer_Team, Title = "Team", Callback=function(V) Colors.Tracer_Team = V end})
+VisualGB1:AddToggle('Chams', {Text='Highlights/Chams', Default=false, Callback=function(V)
+    ESPChams = V
+    if not V then
+        for _, Hl in pairs(HighlightTable) do Hl:Destroy() end
+        HighlightTable = {}
+    else
+        for _, Plr in pairs(Players:GetPlayers()) do
+            if Plr.Character then
+                local isEnemy = IsEnemy(Plr)
+                if not TeamCheck or isEnemy then
+                    AddHighlight(Plr.Character, isEnemy)
+                end
+            end
+        end
+    end
+end})
+:AddColorPicker('ChamsEnemyC', {Default=Colors.Chams_Enemy, Title = "Enemy", Callback=function(V) 
+    Colors.Chams_Enemy = V 
+    for Char, Hl in pairs(HighlightTable) do 
+        local Player = Players:GetPlayerFromCharacter(Char)
+        if Player and IsEnemy(Player) then Hl.FillColor = V end 
+    end
+end})
+:AddColorPicker('ChamsTeamC', {Default=Colors.Chams_Team, Title = "Team", Callback=function(V) 
+    Colors.Chams_Team = V 
+    for Char, Hl in pairs(HighlightTable) do 
+        local Player = Players:GetPlayerFromCharacter(Char)
+        if Player and not IsEnemy(Player) then Hl.FillColor = V end 
+    end
+end})
+
+
+
+
+
+
+
+local VisualGB2 = Tabs.Visuals:AddRightGroupbox('View')
+VisualGB2:AddToggle('FOVCircle', {Text='FOV Circle', Default=false, Callback=function(V) FOVCircle.Visible=V end})
+VisualGB2:AddToggle('Crosshair', {Text='Custom Crosshair', Default=false})
+VisualGB2:AddSlider('CrossSize', {Text='Crosshair Size', Default=10, Min=5, Max=50, Rounding=0, Callback=function(V) CrosshairSize=V end})
+VisualGB2:AddToggle('ThirdPerson', {Text='Third Person', Default=false, Callback=function(V) ThirdPersonEnabled=V end})
+VisualGB2:AddSlider('ThirdDist', {Text='ThirdPerson Distance', Default=10, Min=2, Max=40, Rounding=0, Callback=function(V) ThirdPersonDistance=V end})
+
+
+-- World Modulators Groupbox (Ambient Changer removed)
+local VisualGB_World = Tabs.Visuals:AddRightGroupbox('World')
+VisualGB_World:AddToggle('FullBright', {Text='Full Bright (Max Visibility)', Default=false, Callback=SetFullBright})
+VisualGB_World:AddToggle('NoFog', {Text='No Fog (Clear Air)', Default=false, Callback=SetNoFog})
+VisualGB_World:AddToggle('RemoveShadows', {Text='Remove Shadows', Default=false, Callback=SetRemoveShadows})
+
+VisualGB_World:AddToggle('TimeChanger', {Text='Freeze Time (Continuous)', Default=false, Callback=function(V) TimeChangerEnabled=V end})
+VisualGB_World:AddSlider('TimeValue', {Text='Time of Day (0-24)', Default=14, Min=0, Max=24, Rounding=0, Callback=SetTime})
+
+--VisualGB_World:AddToggle('RemoveFlashSmoke', {Text='Remove Flash/Smoke Effects', Default=false, Callback=SetRemoveFlashSmoke})
+
+ 
+local MoveGB = Tabs.Movement:AddLeftGroupbox('Movement')
+MoveGB:AddToggle('Bhop', {Text='Bhop', Default=false, Callback=function(V) BhopEnabled=V end})
+MoveGB:AddToggle('InfJump', {Text='Infinite Jump', Default=false, Callback=function(V) InfJumpEnabled=V end})
+
+MoveGB:AddSlider('FlySpeed', {Text='Fly Speed', Default=60, Min=5, Max=100, Rounding=0, Callback=function(V) FlySpeed=V end})
+MoveGB:AddToggle('Fly', {
+    Text='Fly (Smoother WASD movement, Space/Shift for Up/Down)',
+    Default=false, 
+    Keybind = 'V',
+    Callback=function(V) 
+        FlyEnabled=V 
+        if not V then 
+            local char = LocalPlayer.Character
+            if char then removeControllers(char:FindFirstChild("Humanoid")) end
+        end
+    end
+})
+
+MoveGB:AddToggle('Teleport', {Text='Ctrl+Click Teleport', Default=false, Callback=function(V) TPEnabled=V end})
+MoveGB:AddSlider('Speed', {Text='Speedhack', Default=16, Min=16, Max=100, Rounding=0, Callback=function(V) SpeedValue=V end})
+
+ 
+-- Anti Aim Tab
+local AntiAimGB = Tabs['Anti Aim']:AddLeftGroupbox('Spinbot')
+AntiAimGB:AddToggle('Spinbot', {Text='Spinbot', Default=false, Callback=function(V) SpinbotEnabled=V end})
+AntiAimGB:AddSlider('SpinSpeed', {Text='Spin Speed', Default=2, Min=1, Max=20, Rounding=0, Callback=function(V) SpinSpeed=V end})
+
+
+local MiscGB = Tabs.Misc:AddLeftGroupbox('Misc')
+MiscGB:AddToggle('TeamCheck', {Text='Team Check (Hides Team ESP)', Default=false, Callback=function(V) 
+    TeamCheck=V 
+    if ESPChams then
+        for Char, Hl in pairs(HighlightTable) do Hl:Destroy() end
+        HighlightTable = {}
+        for _, Plr in pairs(Players:GetPlayers()) do
+            if Plr.Character then
+                local isEnemy = IsEnemy(Plr)
+                if not TeamCheck or isEnemy then
+                    AddHighlight(Plr.Character, isEnemy)
+                end
+            end
+        end
+    end
+end})
+
+
+local SettingsGB = Tabs['UI Settings']:AddLeftGroupbox('Settings')
+SettingsGB:AddButton('Unload Script', function() Library:Unload() end)
+SettingsGB:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
+
+Library.ToggleKeybind = Options.MenuKeybind
+
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetFolder('GamesenseRBLX/CB')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
