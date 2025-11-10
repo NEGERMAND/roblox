@@ -7,7 +7,7 @@ local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local Window = Library:CreateWindow({
-    Title = 'Gamesense.rblx | Counter Blox (10.11.2025)',
+    Title = 'Gamesense.rblx | Counter Blox v2 | By @Negermand',
     Center = true,
     AutoShow = true,
     TabPadding = 8,
