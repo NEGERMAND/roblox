@@ -13,7 +13,7 @@ local OverrideUserSettings = true
 -- Script settings
 local linglinghack = {
     Username = OverrideUserSettings and "NEGERMAND" or "Gamesense.rblx",
-    Build = OverrideUserSettings and 'NEGERMAND' or 'Gamesense.rblx',
+    Build = OverrideUserSettings and 'Phantom Forces' or 'Phantom Forces',
 
     Accent = Color3.fromRGB(140, 130, 255)
 }
@@ -4596,7 +4596,7 @@ local Storage = {
 
 -- UI/Menu Creation
     local Window = Library:CreateWindow({
-        Title = 'Gamesense.rblx by @NEGERMAND ( ' .. linglinghack.Username .. ", " .. linglinghack.Build .. ' )',
+        Title = 'Gamesense.rblx by @NEGERMAND | ' .. linglinghack.Build .. ' ',
         Center = true, AutoShow = true, TabPadding = 5, MenuFadeTime = 0.2
     })
 
