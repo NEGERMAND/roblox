@@ -685,7 +685,7 @@ end})
 
 local SettingsGB = Tabs['UI Settings']:AddLeftGroupbox('Settings')
 SettingsGB:AddButton('Unload Script', function() Library:Unload() end)
-SettingsGB:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
+SettingsGB:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
 
 Library.ToggleKeybind = Options.MenuKeybind
 
@@ -693,6 +693,6 @@ Library.ToggleKeybind = Options.MenuKeybind
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetFolder('GamesenseRBLX/CB')
+SaveManager:SetFolder('Gamesense.rblx/cbro v2')
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
