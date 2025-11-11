@@ -19,7 +19,7 @@ local linglinghack = {
 }
 
 
-
+local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/dementiaenjoyer/homohack/refs/heads/main/storage/drawing.lua"))()
 
 -- UI Library
@@ -4640,7 +4640,7 @@ local Storage = {
 
     -- UI -> Ragebot -> General [BROKEN AS OF 4TH OF JULY UPDATE, WORKING ON RECODE]
     Groups.Ragebot.General:AddToggle('RagebotEnabled', {
-        Text = 'Aimbot - left Alt to toggle', Tooltip = nil,
+        Text = 'Enable Aimbot', Tooltip = nil,
         Default = false,
 
         Callback = function(Value)
@@ -4651,7 +4651,7 @@ local Storage = {
     Groups.Ragebot.General:AddDropdown('RagebotFieldOfViewMode', {
         Text = 'Fov', Tooltip = nil,
 
-        Values = {'Circle', 'Angle'},
+        Values = {'Circle'},
         Multi = false,
         Default = 2,
 
@@ -5421,59 +5421,89 @@ Groups.Ragebot.General:AddSlider('MouseMoverSpeed', {
 		end
 	end
 	
-	-- Optional: FOV zoom adjustment (for scopes, etc.)
-	local function getZoomScale()
-		local zoom = Camera.FieldOfView
-		local defaultFOV = 70
-		local scale = defaultFOV / zoom
-		return math.clamp(scale, 0.85, 1.2) -- More moderate zoom scale
-	end
-	
-	function Visuals:UpdatePlayers()
-		local PlayerModels = PhantomForces:GetPlayerModels()
-		local boxConfig = Config.Visuals.Players.Boxes
-	
-		if boxConfig.Enabled and PlayerModels ~= nil then
-			Renderer:UnrenderAllExcept({'FOVCircle', 'CrosshairHorizontal', 'CrosshairVertical'})
-	
-			for _, Player in pairs(PlayerModels) do
-				if not Player:FindFirstChild("Dead") then
-					local Torso = PhantomForces:GetPlayerPart(Player, "Torso")
-					if not Torso then continue end
-	
-					local ScreenPos, OnScreen = Camera:WorldToViewportPoint(Torso.Position)
-					local isEnemy = tostring(PhantomForces:GetPlayerTeam(Player)) ~= Players.LocalPlayer.Team.Name
-	
-					if OnScreen and isEnemy then
-						local distance = (Camera.CFrame.Position - Torso.Position).Magnitude
-						local distScale = getDistanceScale(distance)
-						local zoomScale = getZoomScale()
-	
-						-- Apply the scaling factor for both zoomed and non-zoomed
-						local baseW, baseH = 28, 60  -- Smaller base size
-						local scaledW = baseW * distScale * zoomScale
-						local scaledH = baseH * distScale * zoomScale
-	
-						-- Position of the box
-						local boxPos = ScreenPos - Vec3(scaledW / 2, scaledH / 2, 0)
-	
-						-- Outline (black)
-						Renderer:Rectangle(Player.Name .. "_BoxOutline", boxPos, Vec3(scaledW, scaledH, 0), ColorRGB(0, 0, 0))
-	
-						-- Main box (custom color)
-						Renderer:Rectangle(
-							Player.Name .. "_BoxInner",
-							boxPos + Vec3(1, 1, 0),
-							Vec3(scaledW - 2, scaledH - 2, 0),
-							boxConfig.Color
-						)
-					end
-				end
-			end
-		elseif PlayerModels ~= nil then
-			Renderer:UnrenderAllExcept({'FOVCircle', 'CrosshairHorizontal', 'CrosshairVertical'})
-		end
-	end
+-- FIX: ADDED the missing getDistanceScale function for box scaling
+local function getDistanceScale(distance)
+    -- This defines how the box shrinks with distance.
+    local minScale = 0.5 -- The smallest the box can get (50% of base size)
+
+    -- A simple inverse scaling logic: Scale is 1.0 at 0 distance, decreases quickly.
+    -- (150 is a common soft distance cap to base the scaling on)
+    local scaleFactor = 1 / (distance / 150)
+    
+    -- Clamps the scale between minScale (50%) and 1.0 (100% of base size)
+    scaleFactor = math.clamp(scaleFactor, minScale, 1.0)
+    
+    return scaleFactor
+end
+
+local function getDistanceScale(distance)
+    -- This defines how the box shrinks with distance.
+    local minScale = 0.5 -- The smallest the box can get (50% of base size)
+
+    -- A simple inverse scaling logic: Scale is 1.0 at 0 distance, decreases quickly.
+    -- (150 is a common soft distance cap to base the scaling on)
+    local scaleFactor = 1 / (distance / 150)
+    
+    -- Clamps the scale between minScale (50%) and 1.0 (100% of base size)
+    scaleFactor = math.clamp(scaleFactor, minScale, 1.0)
+    
+    return scaleFactor
+end
+
+-- Optional: FOV zoom adjustment (for scopes, etc.)
+local function getZoomScale()
+    local zoom = Camera.FieldOfView
+    local defaultFOV = 70
+    local scale = defaultFOV / zoom
+    return math.clamp(scale, 0.85, 1.2) -- More moderate zoom scale
+end
+
+function Visuals:UpdatePlayers()
+    local PlayerModels = PhantomForces:GetPlayerModels()
+    local boxConfig = Config.Visuals.Players.Boxes
+
+    if boxConfig.Enabled and PlayerModels ~= nil then
+        Renderer:UnrenderAllExcept({'FOVCircle', 'CrosshairHorizontal', 'CrosshairVertical'})
+
+        for _, Player in pairs(PlayerModels) do
+            if not Player:FindFirstChild("Dead") then
+                local Torso = PhantomForces:GetPlayerPart(Player, "Torso")
+                if not Torso then continue end
+
+                local ScreenPos, OnScreen = Camera:WorldToViewportPoint(Torso.Position)
+                local isEnemy = tostring(PhantomForces:GetPlayerTeam(Player)) ~= Players.LocalPlayer.Team.Name
+
+                if OnScreen and isEnemy then
+                    local distance = (Camera.CFrame.Position - Torso.Position).Magnitude
+                    
+                    local distScale = getDistanceScale(distance) 
+                    local zoomScale = getZoomScale()
+
+                    -- Apply the scaling factor for both zoomed and non-zoomed
+                    local baseW, baseH = 14, 30  -- NEW: 28/2 = 14, 60/2 = 30
+                    local scaledW = baseW * distScale * zoomScale
+                    local scaledH = baseH * distScale * zoomScale
+
+                    -- Position of the box
+                    local boxPos = ScreenPos - Vec3(scaledW / 2, scaledH / 2, 0)
+
+                    -- Outline (black)
+                    Renderer:Rectangle(Player.Name .. "_BoxOutline", boxPos, Vec3(scaledW, scaledH, 0), ColorRGB(0, 0, 0))
+
+                    -- Main box (custom color)
+                    Renderer:Rectangle(
+                        Player.Name .. "_BoxInner",
+                        boxPos + Vec3(1, 1, 0),
+                        Vec3(scaledW - 2, scaledH - 2, 0),
+                        boxConfig.Color
+                    )
+                end
+            end
+        end
+    elseif PlayerModels ~= nil then
+        Renderer:UnrenderAllExcept({'FOVCircle', 'CrosshairHorizontal', 'CrosshairVertical'})
+    end
+end
 	
 	
 	
@@ -6068,23 +6098,27 @@ end)
 
 -- Unload feature
     Groups.Settings.Menu:AddButton('Unload', function()
-        Library:Notify('Gamesense.rblx This feature is not working because why')
+        Library:Unload() -- FIXED: Use the correct function to unload the GUI
         -- Removed for now, I couldnt care enough cuz 1/2 the time you need to relauch anyways.
         -- Add back before public/private release, we havent decided either yet also.
-    end)    
+    end)
 --
 
 -- Load UI Library Save Manager / Config Manager.
+-- Load UI Library Save Manager / Config Manager.
 -- This isnt indented like everything else due to a solara bug, your script won't run with a comment on the last line.
+ThemeManager:SetLibrary(Library)   -- NEW: Pass the Library to ThemeManager
 SaveManager:SetLibrary(Library)
 
-SaveManager:IgnoreThemeSettings()
+SaveManager:IgnoreThemeSettings() -- KEEP: Tells SaveManager not to save theme settings
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
 SaveManager:SetFolder('Gamesense.rblx')
 
+-- NEW: Builds the Theme groupbox on the left side of your Settings tab
+ThemeManager:ApplyToTab(Tabs.Settings) 
+
+-- Now build the Config section on the right side
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 SaveManager:LoadAutoloadConfig()
-
-Library:Notify(string.format('Gamesense.rblx NEGERMAND owns you now', linglinghack.Username))
