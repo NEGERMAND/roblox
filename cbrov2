@@ -31,11 +31,12 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local Lighting = game:GetService('Lighting')
+local ReplicatedStorage = game:GetService("ReplicatedStorage") -- Added ReplicatedStorage service
 
 --// Variables
 local TeamCheck = false
 local ESPEnabled, ESPBoxes, ESPNames, ESPHealth, ESPDistance, ESPTracers, ESPChams = false, false, false, false, false, false, false
-local AimbotEnabled, TriggerEnabled, HitboxEnabled = false, false, false
+local AimbotEnabled, AutoAimbotEnabled, TriggerEnabled, HitboxEnabled = false, false, false, false 
 local BhopEnabled, FlyEnabled, InfJumpEnabled, TPEnabled = false, false, false, false
 local SpinbotEnabled, ThirdPersonEnabled = false, false
 local SpeedValue, FOVRadius, Smoothing, HitboxSize = 16, 150, 0.1, 1
@@ -45,6 +46,13 @@ local FlySpeed = 60
 local FakeLagEnabled, HitSoundEnabled = false, false
 local ESPTable, HighlightTable = {}, {}
 local spinAngle = 0
+local originalSpreadValues = {} -- Table to store original weapon spread values
+
+-- NEW GLOBAL VARIABLES FOR ADDED FEATURES
+_G.RemoveScope = false
+_G.ArmsChams = false
+_G.RemoveFlash = false
+_G.ArmsChamsColor = Color3.fromRGB(200, 200, 200) -- Default color for Arms Chams
 
 -- Movement/Misc Variables
 local CtrlHeld = false
@@ -347,12 +355,36 @@ UserInputService.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserI
 UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton2 then RMBHeld = false end end)
 
 RunService.Heartbeat:Connect(function()
-    if RMBHeld and AimbotEnabled then
-        local Target = GetClosest()
-        if Target then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Target.Position), Smoothing)
+    local Target = GetClosest()
+
+    -- AIMBOT LOGIC: Combines RMB Hold and Auto Aimbot
+    if (RMBHeld and AimbotEnabled) or AutoAimbotEnabled then
+        if Target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+            local Head = LocalPlayer.Character.Head
+            local isVisible = true
+
+            -- Apply Visibility Check only for Auto Aimbot
+            if AutoAimbotEnabled then
+                local VisParams = RaycastParams.new()
+                VisParams.FilterType = Enum.RaycastFilterType.Blacklist
+                VisParams.FilterDescendantsInstances = {LocalPlayer.Character, Target.Parent}
+                
+                local direction = Target.Position - Head.Position
+                -- Raycast from our head towards the target's head
+                local VisRes = workspace:Raycast(Head.Position, direction, VisParams)
+                
+                -- If VisRes is NOT nil, it means the ray hit something (like a wall) before reaching the target.
+                if VisRes then
+                    isVisible = false
+                end
+            end
+
+            if isVisible then
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Target.Position), Smoothing)
+            end
         end
     end
+
     if TriggerEnabled then
         local Ray = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
         local Params = RaycastParams.new()
@@ -457,6 +489,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
+-- Main RunService.Stepped loop (Bhop, Inf Jump, Fly, Spinbot)
 RunService.Stepped:Connect(function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hum = LocalPlayer.Character.Humanoid
@@ -553,18 +586,161 @@ RunService.Stepped:Connect(function()
     
 end)
 
+-- Main RenderStepped Loop (Graphics updates)
+RunService.RenderStepped:Connect(function()
+    -- Remove Scope Logic
+    local Scope = LocalPlayer.PlayerGui:FindFirstChild("GUI") and LocalPlayer.PlayerGui.GUI:FindFirstChild("Crosshairs") and LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Scope")
+    if _G.RemoveScope == true and Scope then
+        Scope.ImageTransparency = 1
+        if Scope:FindFirstChild("Scope") then
+            Scope.Scope.ImageTransparency = 1
+            Scope.Scope.Size = UDim2.new(2, 0, 2, 0)
+            Scope.Scope.Position = UDim2.new(-0.5, 0, -0.5, 0)
+            if Scope.Scope:FindFirstChild("Blur") then
+                Scope.Scope.Blur.ImageTransparency = 1
+                if Scope.Scope.Blur:FindFirstChild("Blur") then
+                    Scope.Scope.Blur.Blur.ImageTransparency = 1
+                end
+            end
+        end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame1") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame1.Transparency = 1 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame2") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame2.Transparency = 1 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame3") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame3.Transparency = 1 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame4") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame4.Transparency = 1 end
+    elseif Scope then
+        Scope.ImageTransparency = 0
+        if Scope:FindFirstChild("Scope") then
+            Scope.Scope.ImageTransparency = 0
+            Scope.Scope.Size = UDim2.new(1, 0, 1, 0)
+            Scope.Scope.Position = UDim2.new(0, 0, 0, 0)
+            if Scope.Scope:FindFirstChild("Blur") then
+                Scope.Scope.Blur.ImageTransparency = 0
+                if Scope.Scope.Blur:FindFirstChild("Blur") then
+                    Scope.Scope.Blur.Blur.ImageTransparency = 0
+                end
+            end
+        end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame1") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame1.Transparency = 0 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame2") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame2.Transparency = 0 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame3") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame3.Transparency = 0 end
+        if LocalPlayer.PlayerGui.GUI.Crosshairs:FindFirstChild("Frame4") then LocalPlayer.PlayerGui.GUI.Crosshairs.Frame4.Transparency = 0 end
+    end
+
+    -- Weapon/Arm Chams Logic
+    for _, model in ipairs(workspace.Camera:GetChildren()) do
+        if model:IsA("Model") and model.Name == "Arms" then
+            -- Reverting to default appearance.
+            for _, part in ipairs(model:GetChildren()) do
+                if part:IsA("MeshPart") or part:IsA("BasePart") then
+                    part.Color = Color3.fromRGB(200, 200, 200) -- Default visual state
+                    part.Material = Enum.Material.Plastic
+                end
+            end
+            
+            -- Arms Chams Logic
+            for _, AnotherStuff in ipairs(model:GetChildren()) do
+                if AnotherStuff:IsA("Model") and AnotherStuff.Name ~= "AnimSaves" then
+                    for _, Arm in ipairs(AnotherStuff:GetChildren()) do
+                        if Arm:IsA("BasePart") then
+                            if _G.ArmsChams == true then
+                                Arm.Transparency = 1 -- Hide the arm itself
+                                for _, StuffInArm in ipairs(Arm:GetChildren()) do
+                                    if StuffInArm:IsA("BasePart") then
+                                        StuffInArm.Material = Enum.Material.ForceField
+                                        StuffInArm.Color = _G.ArmsChamsColor
+                                    end
+                                end
+                            else
+                                Arm.Transparency = 0
+                                for _, StuffInArm in ipairs(Arm:GetChildren()) do
+                                    if StuffInArm:IsA("BasePart") then
+                                        StuffInArm.Material = Enum.Material.Plastic
+                                        StuffInArm.Color = Color3.fromRGB(200, 200, 200)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Remove Flash Logic (Blnd GUI)
+    if _G.RemoveFlash then
+        local blnd = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("Blnd")
+        if blnd then blnd.Enabled = false end
+    end
+end)
+
 
 --// UI Setup
 
-local CombatGB1 = Tabs.Combat:AddLeftGroupbox('combat')
-CombatGB1:AddToggle('Aimbot', {Text='RMB Hold Aimbot', Default=false, Callback=function(V) AimbotEnabled=V end})
+-- 1. Standard Aimbot & Triggerbot (Left)
+local CombatGB1 = Tabs.Combat:AddLeftGroupbox('Aimbot') -- Renamed from 'combat'
+
+CombatGB1:AddToggle('Aimbot', {Text='Enable Aimbot', Default=false, Callback=function(V) AimbotEnabled=V end})
 CombatGB1:AddSlider('FOV', {Text='FOV Radius', Default=150, Min=0, Max=500, Rounding=0, Callback=function(V) FOVRadius=V end})
-CombatGB1:AddSlider('Smooth', {Text='Smoothing', Default=10, Min=1, Max=100, Rounding=0, Callback=function(V) Smoothing=V/100 end})
-CombatGB1:AddToggle('Trigger', {Text='Triggerbot', Default=false, Callback=function(V) TriggerEnabled=V end})
-CombatGB1:AddSlider('TrigDelay', {Text='Triggerbot Delay (ms)', Default=0, Min=0, Max=500, Rounding=0, Callback=function(V) TriggerDelay=V/1000 end})
+CombatGB1:AddSlider('Smooth', {Text='Aimbot Speed', Default=10, Min=1, Max=100, Rounding=0, Callback=function(V) Smoothing=V/100 end})
+CombatGB1:AddToggle('Trigger', {Text='Auto Fire', Default=false, Callback=function(V) TriggerEnabled=V end})
+CombatGB1:AddSlider('TrigDelay', {Text='Auto Fire Delay (ms)', Default=0, Min=0, Max=500, Rounding=0, Callback=function(V) TriggerDelay=V/1000 end})
+
+
+-- 2. NEW Rage Groupbox (Right)
+local CombatGB_Rage = Tabs.Combat:AddRightGroupbox('Rage')
+
+-- Auto Aim (Always On) moved here. Visibility Check is now forced for this feature.
+CombatGB_Rage:AddToggle('AutoAimbot', {Text='Auto Aim', Default=false, Callback=function(V) AutoAimbotEnabled=V end})
+
+-- No Spread / No Recoil Toggle moved here
+CombatGB_Rage:AddToggle('NoSpreadToggle', {
+    Text = 'No Spread',
+    Default = false,
+    Callback = function(enabled)
+        local weapons = ReplicatedStorage:FindFirstChild("Weapons") and ReplicatedStorage.Weapons:GetChildren() or {}
+
+        if enabled then
+            -- Save current spread values & set to 0
+            originalSpreadValues = {} -- reset stored values
+
+            for _, weapon in pairs(weapons) do
+                local spreadFolder = weapon:FindFirstChild("Spread")
+                if spreadFolder then
+                    originalSpreadValues[weapon.Name] = {}
+
+                    for _, valObj in pairs(spreadFolder:GetChildren()) do
+                        if valObj:IsA("NumberValue") or valObj:IsA("IntValue") then
+                            -- Save original value
+                            originalSpreadValues[weapon.Name][valObj.Name] = valObj.Value
+                            -- Set to zero
+                            valObj.Value = 0
+                        end
+                    end
+                end
+            end
+
+        else
+            -- Restore original spread values
+            for _, weapon in pairs(weapons) do
+                local spreadFolder = weapon:FindFirstChild("Spread")
+                if spreadFolder and originalSpreadValues[weapon.Name] then
+                    for _, valObj in pairs(spreadFolder:GetChildren()) do
+                        if valObj:IsA("NumberValue") or valObj:IsA("IntValue") then
+                            local originalValue = originalSpreadValues[weapon.Name][valObj.Name]
+                            if originalValue ~= nil then
+                                valObj.Value = originalValue
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
 
 local VisualGB1 = Tabs.Visuals:AddLeftGroupbox('ESP')
-VisualGB1:AddToggle('ESPMain', {Text='Enable ESP', Default=false, Callback=function(V) ESPEnabled=V end})
+VisualGB1:AddToggle('ESPMain', {Text='Enable ESP', Default=true, Callback=function(V) ESPEnabled=V end})
 VisualGB1:AddToggle('Boxes', {Text='Boxes', Default=false, Callback=function(V) ESPBoxes=V end})
 :AddColorPicker('BoxEnemyC', {Default=Colors.Box_Enemy, Title = "Enemy", Callback=function(V) Colors.Box_Enemy = V end})
 :AddColorPicker('BoxTeamC', {Default=Colors.Box_Team, Title = "Team", Callback=function(V) Colors.Box_Team = V end})
@@ -611,11 +787,10 @@ end})
     end
 end})
 
-
-
-
-
-
+local VisualGB_Weapon = Tabs.Visuals:AddLeftGroupbox('Weapon') -- NEW GROUPBOX
+VisualGB_Weapon:AddToggle('RemoveScope', {Text='Remove Scope (No Zoom)', Default=false, Callback=function(V) _G.RemoveScope = V end})
+--VisualGB_Weapon:AddToggle('ArmsChams', {Text='Arm Chams (Hide Arms/Color Gun)', Default=false, Callback=function(V) _G.ArmsChams = V end})
+--VisualGB_Weapon:AddColorPicker('ArmsChamsColor', {Default=_G.ArmsChamsColor, Title = "Arm Chams Color", Callback=function(V) _G.ArmsChamsColor = V end})
 
 local VisualGB2 = Tabs.Visuals:AddRightGroupbox('View')
 VisualGB2:AddToggle('FOVCircle', {Text='FOV Circle', Default=false, Callback=function(V) FOVCircle.Visible=V end})
@@ -632,9 +807,9 @@ VisualGB_World:AddToggle('NoFog', {Text='No Fog (Clear Air)', Default=false, Cal
 VisualGB_World:AddToggle('RemoveShadows', {Text='Remove Shadows', Default=false, Callback=SetRemoveShadows})
 
 VisualGB_World:AddToggle('TimeChanger', {Text='Freeze Time (Continuous)', Default=false, Callback=function(V) TimeChangerEnabled=V end})
-VisualGB_World:AddSlider('TimeValue', {Text='Time of Day (0-24)', Default=14, Min=0, Max=24, Rounding=0, Callback=SetTime})
+VisualGB_World:AddSlider('TimeValue', {Text='Time of Day (0-24)', Default=14, Min=0, Max=24, Rounding=0, Callback=function(V) TimeValue=V end})
 
---VisualGB_World:AddToggle('RemoveFlashSmoke', {Text='Remove Flash/Smoke Effects', Default=false, Callback=SetRemoveFlashSmoke})
+VisualGB_World:AddToggle('RemoveFlash', {Text='Remove Flashbang Effect', Default=false, Callback=function(V) _G.RemoveFlash = V end}) -- NEW TOGGLE
 
  
 local MoveGB = Tabs.Movement:AddLeftGroupbox('Movement')
