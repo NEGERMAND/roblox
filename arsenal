@@ -1,0 +1,473 @@
+-- ====================================================================
+-- ARSENAL HACK - ESP + SKELETON ESP + NO PREDICTION + TEAMCHECK + AMBIENT LIGHTING
+-- ====================================================================
+-- 1. LINORIALIB CORE SETUP
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+-- Services
+local Players = game:GetService('Players')
+local RunService = game:GetService('RunService')
+local Lighting = game:GetService('Lighting')
+local Workspace = game:GetService('Workspace')
+local UserInputService = game:GetService('UserInputService')
+local VirtualInputManager = game:GetService('VirtualInputManager')
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- Config & Original Values
+local config = {
+    Aimbot = { Enabled = false, FOV = 100, TargetPart = 'Head', Keybind = 'V', Smoothness = 20 },
+    Visuals = {
+        Box = false, BoxVisibleColor = Color3.fromRGB(0, 255, 0), BoxInvisibleColor = Color3.fromRGB(255, 0, 0),
+        Name = false, NameColor = Color3.fromRGB(255, 255, 255),
+        Health = false, HealthColor = Color3.fromRGB(0, 255, 0),
+        Skeleton = false, SkeletonColor = Color3.fromRGB(255, 255, 255),
+        Fullbright = false, Time = 12, ShowFOV = true, FOVColor = Color3.fromRGB(255, 255, 255),
+        Ambient = Color3.fromRGB(100, 100, 100) -- NEW: Ambient lighting
+    },
+    Misc = { InfiniteJump = false, WalkSpeed = 16, AntiAFK = false, TeamCheck = true },
+    Settings = { MenuKeybind = 'RightShift' }
+}
+local Original = {
+    TimeOfDay = Lighting.TimeOfDay,
+    WalkSpeed = 16,
+    Brightness = Lighting.Brightness,
+    Ambient = Lighting.Ambient -- NEW: Save original ambient
+}
+
+-- Window & Tabs
+local Window = Library:CreateWindow({ Title = 'Gamesense.rblx by @NEGERMAND | Arsenal', Center = true, AutoShow = true })
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    Visuals = Window:AddTab('Visuals'),
+    Misc = Window:AddTab('Misc'),
+    Settings = Window:AddTab('UI Settings'),
+}
+
+-- Drawing Objects
+local Drawings = { FOVCircle = nil, ESP = {} }
+
+-- ====================================================================
+-- UI SETUP (ADDED AMBIENT LIGHTING)
+-- ====================================================================
+do
+    local AimbotGroup = Tabs.Combat:AddLeftGroupbox('Aimbot')
+    AimbotGroup:AddToggle('Aimbot.Enabled', { Text = 'Enabled', Default = config.Aimbot.Enabled })
+    AimbotGroup:AddLabel('Aimbot keybind'):AddKeyPicker('Aimbot.Keybind', { Default = config.Aimbot.Keybind, Mode = 'Hold', Text = 'Aimbot Key' })
+    AimbotGroup:AddSlider('Aimbot.FOV', { Text = 'FOV Size', Default = config.Aimbot.FOV, Min = 10, Max = 360, Rounding = 0, Suffix = '' })
+    AimbotGroup:AddSlider('Aimbot.Smoothness', { Text = 'Smoothness', Default = config.Aimbot.Smoothness, Min = 1, Max = 100, Rounding = 0, Suffix = '%' })
+    AimbotGroup:AddDropdown('Aimbot.TargetPart', { Text = 'Target Hitbox', Default = config.Aimbot.TargetPart, Values = { 'Head', 'HumanoidRootPart' } })
+
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('Player ESP')
+
+ESPGroup:AddToggle('Visuals.Box', { Text = 'Box ESP', Default = config.Visuals.Box })
+    :AddColorPicker('Visuals.BoxVisibleColor', { 
+        Default = config.Visuals.BoxVisibleColor,
+        Title = 'Visible Color' 
+    })
+    :AddColorPicker('Visuals.BoxInvisibleColor', { 
+        Default = config.Visuals.BoxInvisibleColor,
+        Title = 'Invisible Color' 
+    })
+
+ESPGroup:AddToggle('Visuals.Name', { Text = 'Name ESP', Default = config.Visuals.Name })
+    :AddColorPicker('Visuals.NameColor', { 
+        Default = config.Visuals.NameColor,
+        Title = 'Name Color' 
+    })
+
+ESPGroup:AddToggle('Visuals.Health', { Text = 'Health Bar', Default = config.Visuals.Health })
+    :AddColorPicker('Visuals.HealthColor', { 
+        Default = config.Visuals.HealthColor,
+        Title = 'Health Color' 
+    })
+
+ESPGroup:AddToggle('Visuals.Skeleton', { Text = 'Skeleton ESP', Default = config.Visuals.Skeleton })
+    :AddColorPicker('Visuals.SkeletonColor', { 
+        Default = config.Visuals.SkeletonColor,
+        Title = 'Skeleton Color' 
+    })
+
+local FOVGroup = Tabs.Visuals:AddRightGroupbox('FOV Circle')
+FOVGroup:AddToggle('Visuals.ShowFOV', { Text = 'Show FOV Circle', Default = config.Visuals.ShowFOV })
+    :AddColorPicker('Visuals.FOVColor', { 
+        Default = config.Visuals.FOVColor, 
+        Title = 'FOV Color' 
+    })
+
+local WorldGroup = Tabs.Visuals:AddRightGroupbox('World Options')
+WorldGroup:AddToggle('Visuals.Fullbright', { Text = 'Fullbright', Default = config.Visuals.Fullbright })
+WorldGroup:AddSlider('Visuals.Time', { Text = 'Time of Day', Default = config.Visuals.Time, Min = 0, Max = 24, Rounding = 0, Suffix = ':00' })
+WorldGroup:AddToggle('Visuals.CustomAmbient', { Text = 'Custom Ambient Enabled', Default = false })
+    :AddColorPicker('Visuals.Ambient', { 
+        Default = config.Visuals.Ambient, 
+        Title = 'Ambient Color' 
+    })
+
+    local MiscGroup = Tabs.Misc:AddRightGroupbox('WARNING')
+    MiscGroup:AddLabel('This script is made in a very')
+    MiscGroup:AddLabel('short time, dm me on discord')
+    MiscGroup:AddLabel('@negerti, for feature suggestion')
+
+
+    local MovementGroup = Tabs.Misc:AddLeftGroupbox('Movement')
+    MovementGroup:AddToggle('Misc.InfiniteJump', { Text = 'Infinite Jump', Default = config.Misc.InfiniteJump })
+    MovementGroup:AddSlider('Misc.WalkSpeed', { Text = 'WalkSpeed', Default = config.Misc.WalkSpeed, Min = 16, Max = 200, Rounding = 0 })
+
+    local UtilityGroup = Tabs.Misc:AddLeftGroupbox('Utility')
+    UtilityGroup:AddToggle('Misc.TeamCheck', { Text = 'TeamCheck', Default = config.Misc.TeamCheck })
+    UtilityGroup:AddToggle('Misc.AntiAFK', { Text = 'Anti-AFK', Default = config.Misc.AntiAFK })
+    UtilityGroup:AddButton({ Text = 'Insta Kill (Self)', Func = function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass('Humanoid') then
+            LocalPlayer.Character.Humanoid.Health = 0
+        end
+    end })
+
+    local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu')
+    MenuGroup:AddLabel('Menu Keybind'):AddKeyPicker('Settings.MenuKeybind', { Default = config.Settings.MenuKeybind, NoUI = true, Text = 'Menu keybind' })
+    Library.ToggleKeybind = Options['Settings.MenuKeybind']
+    MenuGroup:AddDivider()
+    MenuGroup:AddButton('Unload Script', function() Library:Unload() end)
+
+    ThemeManager:SetLibrary(Library)
+    ThemeManager:ApplyToTab(Tabs.Settings)
+    SaveManager:SetLibrary(Library)
+    SaveManager:SetFolder('Gamesense.rblx/arsenal')
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({ 'Settings.MenuKeybind' })
+    SaveManager:BuildConfigSection(Tabs.Settings)
+    SaveManager:LoadAutoloadConfig()
+end
+
+-- ====================================================================
+-- UTILITY FUNCTIONS
+-- ====================================================================
+local function IsAlive(plr)
+    local char = plr.Character
+    return char and char:FindFirstChild('Humanoid') and char.Humanoid.Health > 0 and char:FindFirstChild('HumanoidRootPart')
+end
+
+local function SameTeam(plr)
+    return plr.Team == LocalPlayer.Team
+end
+
+local function WorldToScreen(pos)
+    local screenPoint, onScreen = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(screenPoint.X, screenPoint.Y), onScreen
+end
+
+local function GetClosestPlayer()
+    local closest, shortestDistance = nil, math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and IsAlive(player) and (not Toggles['Misc.TeamCheck'].Value or not SameTeam(player)) then
+            local targetPart = player.Character[Options['Aimbot.TargetPart'].Value]
+            if targetPart then
+                local screenPos, onScreen = WorldToScreen(targetPart.Position)
+                if onScreen then
+                    local distance = (mousePos - screenPos).Magnitude
+                    if distance < shortestDistance and distance < Options['Aimbot.FOV'].Value then
+                        closest = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function SmoothLerp(a, b, smoothness)
+    local alpha = math.clamp(1 / (smoothness * 0.1 + 0.1), 0, 1)
+    return a:lerp(b, alpha)
+end
+
+-- ====================================================================
+-- FOV CIRCLE
+-- ====================================================================
+do
+    Drawings.FOVCircle = Drawing.new("Circle")
+    Drawings.FOVCircle.Thickness = 2
+    Drawings.FOVCircle.NumSides = 30
+    Drawings.FOVCircle.Radius = config.Aimbot.FOV
+    Drawings.FOVCircle.Filled = false
+    Drawings.FOVCircle.Transparency = 1
+    Drawings.FOVCircle.Color = config.Visuals.FOVColor
+    Drawings.FOVCircle.Visible = false
+
+    Options['Aimbot.FOV']:OnChanged(function(v) Drawings.FOVCircle.Radius = v end)
+    Options['Visuals.FOVColor']:OnChanged(function(c) Drawings.FOVCircle.Color = c end)
+end
+
+-- ====================================================================
+-- ESP SYSTEM (SKELETON FULLY FIXED)
+-- ====================================================================
+local function CreateESP(player)
+    if Drawings.ESP[player] then return end
+
+    local Box = Drawing.new("Square")
+    Box.Visible = false; Box.Color = Color3.new(1,1,1); Box.Thickness = 2; Box.Filled = false; Box.Transparency = 1
+
+    local Name = Drawing.new("Text")
+    Name.Visible = false; Name.Color = Color3.new(1,1,1); Name.Size = 16; Name.Center = true; Name.Outline = true; Name.Font = 2
+
+    local HealthBar = Drawing.new("Line")
+    HealthBar.Visible = false; HealthBar.Color = Color3.new(0,1,0); HealthBar.Thickness = 3
+
+    local HealthBG = Drawing.new("Line")
+    HealthBG.Visible = false; HealthBG.Color = Color3.new(0,0,0); HealthBG.Thickness = 3; HealthBG.Transparency = 0.5
+
+    local Bones = {}
+    for i = 1, 12 do
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.Thickness = 2
+        line.Color = Color3.new(1,1,1)
+        Bones[i] = line
+    end
+
+    Drawings.ESP[player] = { Box = Box, Name = Name, HealthBar = HealthBar, HealthBG = HealthBG, Bones = Bones }
+end
+
+local function RemoveESP(player)
+    if Drawings.ESP[player] then
+        for _, obj in pairs(Drawings.ESP[player]) do
+            if typeof(obj) == "table" then
+                for _, line in pairs(obj) do 
+                    if line then line:Remove() end
+                end
+            else
+                if obj then obj:Remove() end
+            end
+        end
+        Drawings.ESP[player] = nil
+    end
+end
+
+-- Create/Remove ESP on spawn/death
+local function OnCharacterAdded(player, character)
+    if player == LocalPlayer then return end
+    CreateESP(player)
+end
+
+local function OnCharacterRemoving(player, character)
+    RemoveESP(player)
+end
+
+-- Existing players
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        if player.Character then CreateESP(player) end
+        player.CharacterAdded:Connect(function(char) OnCharacterAdded(player, char) end)
+        player.CharacterRemoving:Connect(function(char) OnCharacterRemoving(player, char) end)
+    end
+end
+
+-- New players
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char) OnCharacterAdded(player, char) end)
+    player.CharacterRemoving:Connect(function(char) OnCharacterRemoving(player, char) end)
+end)
+
+Players.PlayerRemoving:Connect(RemoveESP)
+
+-- ====================================================================
+-- MAIN LOOP (ADDED AMBIENT LIGHTING)
+-- ====================================================================
+RunService.RenderStepped:Connect(function()
+    -- FOV Circle
+    if Toggles['Aimbot.Enabled'].Value and Toggles['Visuals.ShowFOV'].Value then
+        Drawings.FOVCircle.Visible = true
+        Drawings.FOVCircle.Position = UserInputService:GetMouseLocation()
+        Drawings.FOVCircle.Color = Options['Visuals.FOVColor'].Value
+    else
+        Drawings.FOVCircle.Visible = false
+    end
+
+    -- World Lighting (UPDATED WITH AMBIENT)
+    Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(Options['Visuals.Time'].Value))
+    Lighting.Brightness = Toggles['Visuals.Fullbright'].Value and 2 or 1
+    
+    -- NEW: Ambient Lighting
+    if Toggles['Visuals.CustomAmbient'].Value then
+        Lighting.Ambient = Options['Visuals.Ambient'].Value
+    end
+
+    -- Movement
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = Options['Misc.WalkSpeed'].Value
+        if Toggles['Misc.InfiniteJump'].Value and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+
+    -- ESP Loop (UNCHANGED - SKELETON FIXED)
+    for player, esp in pairs(Drawings.ESP) do
+        if not player or not player.Parent then
+            RemoveESP(player)
+            continue
+        end
+
+        local alive = IsAlive(player)
+        local shouldShow = alive and (not Toggles['Misc.TeamCheck'].Value or not SameTeam(player))
+
+        -- HIDE ALL ESP FIRST
+        esp.Box.Visible = false
+        esp.Name.Visible = false
+        esp.HealthBar.Visible = false
+        esp.HealthBG.Visible = false
+        for i = 1, 12 do
+            if esp.Bones[i] then esp.Bones[i].Visible = false end
+        end
+
+        if shouldShow and player.Character then
+            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            local head = player.Character:FindFirstChild("Head")
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if not (rootPart and head) then continue end
+
+            local rootPos, rootOnScreen = WorldToScreen(rootPart.Position)
+            local headPos, headOnScreen = WorldToScreen(head.Position + Vector3.new(0, 0.5, 0))
+            local legPos, _ = WorldToScreen(rootPart.Position - Vector3.new(0, 4, 0))
+
+            if not (headOnScreen or rootOnScreen) then continue end
+
+            local height = math.abs(headPos.Y - legPos.Y)
+            local width = height / 2.2
+
+            -- Visibility Raycast
+            local rayOrigin = Camera.CFrame.Position
+            local rayDirection = (rootPart.Position - rayOrigin).Unit * 1000
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+            raycastParams.FilterDescendantsInstances = {LocalPlayer.Character or {}}
+            local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+            local visible = not result or result.Instance:IsDescendantOf(player.Character)
+
+            -- Box ESP
+            if Toggles['Visuals.Box'].Value then
+                esp.Box.Size = Vector2.new(width, height)
+                esp.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
+                esp.Box.Color = visible and Options['Visuals.BoxVisibleColor'].Value or Options['Visuals.BoxInvisibleColor'].Value
+                esp.Box.Visible = true
+            end
+
+            -- Name ESP
+            if Toggles['Visuals.Name'].Value then
+                esp.Name.Text = player.DisplayName
+                esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 25)
+                esp.Name.Color = Options['Visuals.NameColor'].Value
+                esp.Name.Visible = true
+            end
+
+            -- Health Bar
+            if Toggles['Visuals.Health'].Value and hum then
+                local healthPercent = hum.Health / hum.MaxHealth
+                local barHeight = height * healthPercent
+
+                esp.HealthBG.From = Vector2.new(rootPos.X + width / 2 + 4, headPos.Y)
+                esp.HealthBG.To = Vector2.new(rootPos.X + width / 2 + 4, headPos.Y + height)
+                esp.HealthBG.Visible = true
+
+                esp.HealthBar.From = Vector2.new(rootPos.X + width / 2 + 4, headPos.Y + height - barHeight)
+                esp.HealthBar.To = Vector2.new(rootPos.X + width / 2 + 4, headPos.Y + height)
+                esp.HealthBar.Color = Options['Visuals.HealthColor'].Value
+                esp.HealthBar.Visible = true
+            end
+
+            -- SKELETON ESP (UNCHANGED)
+            if Toggles['Visuals.Skeleton'].Value then
+                local function SafeGetPart(char, r15Name, r6Name)
+                    return char:FindFirstChild(r15Name) or char:FindFirstChild(r6Name)
+                end
+
+                local char = player.Character
+                local Head = SafeGetPart(char, "Head", "Head")
+                local UpperTorso = SafeGetPart(char, "UpperTorso", "Torso")
+                local LowerTorso = SafeGetPart(char, "LowerTorso", "Torso")
+                local LeftUpperArm = SafeGetPart(char, "LeftUpperArm", "Left Arm")
+                local LeftLowerArm = SafeGetPart(char, "LeftLowerArm", "Left Arm")
+                local LeftHand = SafeGetPart(char, "LeftHand", "Left Arm")
+                local RightUpperArm = SafeGetPart(char, "RightUpperArm", "Right Arm")
+                local RightLowerArm = SafeGetPart(char, "RightLowerArm", "Right Arm")
+                local RightHand = SafeGetPart(char, "RightHand", "Right Arm")
+                local LeftUpperLeg = SafeGetPart(char, "LeftUpperLeg", "Left Leg")
+                local LeftLowerLeg = SafeGetPart(char, "LeftLowerLeg", "Left Leg")
+                local LeftFoot = SafeGetPart(char, "LeftFoot", "Left Leg")
+                local RightUpperLeg = SafeGetPart(char, "RightUpperLeg", "Right Leg")
+                local RightLowerLeg = SafeGetPart(char, "RightLowerLeg", "Right Leg")
+                local RightFoot = SafeGetPart(char, "RightFoot", "Right Leg")
+
+                local function DrawBone(part1, part2, index)
+                    if part1 and part2 and part1.Parent and part2.Parent then
+                        local p1, on1 = WorldToScreen(part1.Position)
+                        local p2, on2 = WorldToScreen(part2.Position)
+                        if on1 or on2 then
+                            local line = esp.Bones[index]
+                            if line then
+                                line.From = p1
+                                line.To = p2
+                                line.Color = Options['Visuals.SkeletonColor'].Value
+                                line.Visible = true
+                            end
+                        end
+                    end
+                end
+
+                DrawBone(Head, UpperTorso, 1)
+                DrawBone(UpperTorso, LowerTorso, 2)
+                DrawBone(UpperTorso, LeftUpperArm, 3)
+                if LeftUpperArm and LeftLowerArm then DrawBone(LeftUpperArm, LeftLowerArm, 4) end
+                if LeftLowerArm and LeftHand then DrawBone(LeftLowerArm, LeftHand, 5) end
+                DrawBone(UpperTorso, RightUpperArm, 6)
+                if RightUpperArm and RightLowerArm then DrawBone(RightUpperArm, RightLowerArm, 7) end
+                if RightLowerArm and RightHand then DrawBone(RightLowerArm, RightHand, 8) end
+                DrawBone(LowerTorso, LeftUpperLeg, 9)
+                if LeftUpperLeg and LeftLowerLeg then DrawBone(LeftUpperLeg, LeftLowerLeg, 10) end
+                if LeftLowerLeg and LeftFoot then DrawBone(LeftLowerLeg, LeftFoot, 11) end
+                DrawBone(LowerTorso, RightUpperLeg, 12)
+            end
+        end
+    end
+
+    -- Aimbot
+    if Toggles['Aimbot.Enabled'].Value and Options['Aimbot.Keybind']:GetState() then
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild(Options['Aimbot.TargetPart'].Value) then
+            local targetPart = target.Character[Options['Aimbot.TargetPart'].Value]
+            local aimPos = targetPart.Position
+            local smoothness = Options['Aimbot.Smoothness'].Value
+            local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, aimPos)
+            Camera.CFrame = SmoothLerp(Camera.CFrame, targetCFrame, smoothness)
+        end
+    end
+end)
+
+-- ====================================================================
+-- CLEANUP (ADDED AMBIENT RESTORE)
+-- ====================================================================
+Library:OnUnload(function()
+    for _, player in pairs(Players:GetPlayers()) do RemoveESP(player) end
+    if Drawings.FOVCircle then Drawings.FOVCircle:Remove() end
+    Lighting.TimeOfDay = Original.TimeOfDay
+    Lighting.Brightness = Original.Brightness
+    Lighting.Ambient = Original.Ambient -- NEW: Restore ambient
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid.WalkSpeed = Original.WalkSpeed end
+end)
+
+-- Anti-AFK
+spawn(function()
+    while task.wait(60) do
+        if Toggles['Misc.AntiAFK'].Value then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.W, false, game)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.W, false, game)
+        end
+    end
+end)
