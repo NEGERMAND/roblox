@@ -90,7 +90,7 @@ section:Toggle({
 })
 
 section:Toggle({
-    Text = "Enable Player Highlighter",
+    Text = "chams",
     State = false,
     Callback = function(state)
         highlight_enabled = state
