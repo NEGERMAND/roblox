@@ -8,9 +8,9 @@ local window = library:Window({
 })
 
 local tab = window:NewTab({ Logo = 4483345998 })
-local tabsection = tab:TabSection({ Title = "ESP, Aimbot & Highlights" })
+local tabsection = tab:TabSection({ Title = "gamesense.rblx" })
 local column = tabsection:AddColumn({ Title = "Features" })
-local section = column:Section({ Title = "ESP, Aimbot & Highlighter Settings" })
+local section = column:Section({ Title = "gamesense.rblx" })
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
